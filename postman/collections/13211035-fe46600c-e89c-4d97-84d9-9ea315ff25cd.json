@@ -1,0 +1,215 @@
+{
+	"info": {
+		"_postman_id": "13211035-fe46600c-e89c-4d97-84d9-9ea315ff25cd",
+		"name": "LOP DNS V2",
+		"description": "Swagger: [https://api.lopdns.se/v2/docs](https://api.lopdns.se/v2/docs/#/auth/validateToken)\n\n1. Copy the client id retrieved from Lop DNS homepage ([https://lopdns.se/api.php](https://lopdns.se/api.php)) to the variable api-client-id in the associated environment.\n    \n2. Call v2/auth/token to retrive a short-lived token.\n    \n3. Call other methods in the API.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "v2/auth/token",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"id": "fd69cf87-bd49-4aea-bd47-096d3d24be1a",
+						"exec": [
+							"// Parse the JSON response",
+							"let response = pm.response.json();",
+							"",
+							"// Extract the token value",
+							"let token = response.token;",
+							"",
+							"// Save it to a variable (collection/global)",
+							"pm.collectionVariables.set(\"api-short-lived-token\", token);",
+							""
+						],
+						"type": "text/javascript",
+						"packages": {},
+						"requests": {}
+					}
+				}
+			],
+			"id": "13211035-c911a6e8-ad80-4243-aa0a-c5f24cd83d9a",
+			"protocolProfileBehavior": {
+				"disableBodyPruning": true
+			},
+			"request": {
+				"auth": {
+					"type": "apikey",
+					"apikey": [
+						{
+							"key": "value",
+							"value": "{{api-client-id}}",
+							"type": "string"
+						},
+						{
+							"key": "key",
+							"value": "x-clientid",
+							"type": "string"
+						}
+					]
+				},
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "https://api.lopdns.se/v2/auth/token?duration=600",
+					"protocol": "https",
+					"host": [
+						"api",
+						"lopdns",
+						"se"
+					],
+					"path": [
+						"v2",
+						"auth",
+						"token"
+					],
+					"query": [
+						{
+							"key": "duration",
+							"value": "600"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "v2/zones",
+			"id": "13211035-b45b9309-ffad-4925-9d4b-1b8613b95d65",
+			"protocolProfileBehavior": {
+				"disableBodyPruning": true
+			},
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "https://api.lopdns.se/v2/zones",
+					"protocol": "https",
+					"host": [
+						"api",
+						"lopdns",
+						"se"
+					],
+					"path": [
+						"v2",
+						"zones"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "v2/auth/validate",
+			"id": "13211035-c22788ef-35a1-4457-ae31-85f4a708d255",
+			"protocolProfileBehavior": {
+				"disableBodyPruning": true
+			},
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "https://api.lopdns.se/v2/auth/validate",
+					"protocol": "https",
+					"host": [
+						"api",
+						"lopdns",
+						"se"
+					],
+					"path": [
+						"v2",
+						"auth",
+						"validate"
+					],
+					"query": [
+						{
+							"key": "",
+							"value": null,
+							"type": "text",
+							"disabled": true
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "v2/records",
+			"id": "13211035-6665c685-04ea-488a-9131-e586ebcd4908",
+			"protocolProfileBehavior": {
+				"disableBodyPruning": true
+			},
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "https://api.lopdns.se/v2/records/{{zone}}",
+					"protocol": "https",
+					"host": [
+						"api",
+						"lopdns",
+						"se"
+					],
+					"path": [
+						"v2",
+						"records",
+						"{{zone}}"
+					]
+				}
+			},
+			"response": []
+		}
+	],
+	"auth": {
+		"type": "apikey",
+		"apikey": [
+			{
+				"key": "value",
+				"value": "{{api-short-lived-token}}",
+				"type": "string"
+			},
+			{
+				"key": "key",
+				"value": "x-token",
+				"type": "string"
+			}
+		]
+	},
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"id": "a572994f-e1ec-4043-b8df-b676b8a537cf",
+				"type": "text/javascript",
+				"packages": {},
+				"requests": {},
+				"exec": [
+					""
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"id": "5d1cd228-6334-4bbf-8dea-0df8f66b85d0",
+				"type": "text/javascript",
+				"packages": {},
+				"requests": {},
+				"exec": [
+					""
+				]
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "api-short-lived-token",
+			"value": ""
+		},
+		{
+			"key": "zone",
+			"value": ""
+		}
+	]
+}
