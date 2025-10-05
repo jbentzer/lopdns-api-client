@@ -2,7 +2,7 @@
 	"info": {
 		"_postman_id": "13211035-fe46600c-e89c-4d97-84d9-9ea315ff25cd",
 		"name": "LOP DNS V2",
-		"description": "Swagger: [https://api.lopdns.se/v2/docs](https://api.lopdns.se/v2/docs/#/auth/validateToken)\n\n1. Copy the client id retrieved from Lop DNS homepage ([https://lopdns.se/api.php](https://lopdns.se/api.php)) to the variable api-client-id in the associated environment.\n    \n2. Call v2/auth/token to retrive a short-lived token.\n    \n3. Call other methods in the API.",
+		"description": "This Postman collection uses the LOP DNS API V2 to access the DNS zones and records.\n\nSwagger: [https://api.lopdns.se/v2/docs](https://api.lopdns.se/v2/docs/#/auth/validateToken)\n\nCreate a Postman environment with the variables 'api-client-id' (see below) and 'zone'.\n\n1. Copy the client id retrieved from Lop DNS homepage ([https://lopdns.se/api.php](https://lopdns.se/api.php)) to the variable api-client-id in the associated environment.\n    \n2. Call v2/auth/token to retrive a short-lived token.\n    \n3. Call other methods in the API.\n    \n    1. Set 'zone' to the zone currently being modified or read.",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
 	},
 	"item": [
