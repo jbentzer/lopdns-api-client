@@ -28,7 +28,7 @@ docker run --rm \
   -e CLIENT_ID=[MY_API_CLIENT_ID] \
   -e ONCE=false \
   -e INTERVAL=60 \
-  python-rest-client:latest
+  lopdns-api-client:latest
 ```
 
 You can also mount a `.env` file or pass environment variables via docker-compose.
