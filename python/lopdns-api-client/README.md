@@ -12,6 +12,10 @@ API documentation: https://api.lopdns.se/v2/docs
 docker build -t lopdns-api-client:latest .
 ```
 
+## Debug
+
+Set environment variables, for instance CLIENT_ID, in a file called env.debug, which is include in the gitignore to ensure that secret values are not committed.
+
 ## Run (single-run mode)
 
 ```bash
