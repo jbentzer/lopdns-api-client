@@ -30,17 +30,17 @@ def main():
 
     if settings.ONCE:
         logger.info("Running single request")
-        run_once(client)
+        do_logic(client)
     else:
         logger.info("Running continuous mode, interval=%s", settings.INTERVAL)
         try:
             while True:
-                run_once(client)
+                do_logic(client)
                 time.sleep(settings.INTERVAL)
         except KeyboardInterrupt:
             logger.info("Shutting down")
 
-def run_once(client: LopApiClient):
+def do_logic(client: LopApiClient):
     zones = client.getZones()
     logger.info("Zones: %s", zones)
     if isinstance(zones, dict) and "error" in zones:
