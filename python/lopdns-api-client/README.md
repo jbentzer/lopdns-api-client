@@ -6,6 +6,13 @@ The LOP DNS is a free DNS service provided by lopnet AB (https://lopdns.se). Thi
 
 API documentation: https://api.lopdns.se/v2/docs
 
+This client application modifies the contents of a DNS record based on the content of another record. This can for instance be used to update the contents of a TXT record based on a dynamic IP address in an A record, or update a an MX record with the same IP address.
+
+The tasks to run are configured in the config.json file. A task uses regular expressions to find the source and target records as well as the substitution of data within the contents of the target task.
+
+The first example in the config.json file copies the contents of the A record dyn.somedomain.com to the MX record somedomain.com. 
+The second example uses the contents of the same A record to replace the IP address of the target record (TXT) containing an IP address like "... ipv4:AA.BB.CC.DD/32 ..." 
+
 ## Build
 
 ```bash
