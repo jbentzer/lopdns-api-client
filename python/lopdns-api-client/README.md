@@ -21,18 +21,21 @@ Set environment variables, for instance CLIENT_ID, in a file called env.debug, w
 ```bash
 docker run --rm \
   -e CLIENT_ID=[MY_API_CLIENT_ID] \
-  -e ONCE=true \
-  lopdns-api-client:latest
+  -e ONCE=true
+  -e VERBOSE=true \
+  --mount type=bind,source=./debug.config.json,target=/app/config.json,readonly \
+  janben/lopdns-api-client:latest
 ```
 
 ## Run (continuous polling mode)
 
 ```bash
-docker run --rm \
+docker run -d \
   -e CLIENT_ID=[MY_API_CLIENT_ID] \
-  -e ONCE=false \
-  -e INTERVAL=60 \
-  lopdns-api-client:latest
+  -e VERBOSE=false \
+  --mount type=bind,source=./debug.config.json,target=/app/config.json,readonly \
+  --name lopdns-api-client \
+  janben/lopdns-api-client:latest
 ```
 
 You can also mount a `.env` file or pass environment variables via docker-compose.

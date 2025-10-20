@@ -92,3 +92,12 @@ class LopApiClient:
         except Exception as e:
             return {"error": str(e)}
 
+    def updateRecord(self, zone: str, oldRecordName: str, matchingType: str, oldContents: str, newContents: str) -> Record  | dict:
+            path = f"/records/{zone}"
+            headers = {"x-token": f"{self.token.token}"}
+            try:
+                response = self.rest_client.put(path, json={"oldRecordName": oldRecordName, "matchingType": matchingType, "oldValue": oldContents, "newValue": newContents}, headers=headers)
+                return Record(**response) if isinstance(response, dict) else {}
+            except Exception as e:
+                return {"error": str(e)}
+

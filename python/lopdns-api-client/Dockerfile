@@ -1,5 +1,5 @@
 # Use official slim python base
-FROM python:3.11-slim
+FROM python:3.13-slim
 
 # Create app directory
 WORKDIR /app
@@ -15,10 +15,9 @@ COPY . /app
 RUN chmod +x /app/entrypoint.sh
 
 # Default environment variables (can be overridden at runtime)
-ENV BASE_URL=https://api.example.com
-ENV ENDPOINT=/health
-ENV TIMEOUT=10
+ENV CLIENT_ID=""
+ENV CONFIG_FILE="config.json"
 ENV INTERVAL=60
-ENV ONCE=true
+ENV ONCE=false
 
 ENTRYPOINT ["/app/entrypoint.sh"]
