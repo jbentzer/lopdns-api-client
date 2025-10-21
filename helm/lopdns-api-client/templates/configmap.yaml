@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: lopdns-api-client-config
+data:
+  config.json: |-
+{{ .Values.configMap | indent 4 }}
