@@ -1,0 +1,143 @@
+# Default values for lop-dns-client.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+# This will set the replicaset count more information can be found here: https://kubernetes.io/docs/concepts/workloads/controllers/replicaset/
+replicaCount: 1
+
+# This sets the container image more information can be found here: https://kubernetes.io/docs/concepts/containers/images/
+image:
+  repository: janben/lop-dns-client
+  # This sets the pull policy for images.
+  pullPolicy: IfNotPresent
+  # Overrides the image tag whose default is the chart appVersion.
+  tag: "v0.1.0"
+
+env:
+  - name: BASE_URL
+    value: "https://api.lopdns.se/v2/"
+  - name: TIMEOUT
+    value: "10"
+  - name: TOKEN_DURATION_SEC
+    value: "600"
+  - name: INTERVAL
+    value: "60"
+  - name: ONCE
+    value: "false"
+  - name: CLIENT_ID
+    value: ""
+  - name: VERBOSE
+    value: "false"
+
+configMap: |
+  {
+      "dnsTasks":
+      [
+          {
+              "zone": "somedomain.com",
+              "sourceRecord": {
+                  "name": "dyn.somedomain.com",
+                  "type": "A"
+              },
+              "targetRecord": {
+                  "name": "somedomain.com",
+                  "type": "MX"
+              },
+              "taskType": "COPY_RECORD_CONTENT",
+              "dryRun": true
+          },
+          {
+              "zone": "somedomain.com",
+              "sourceRecord": {
+                  "name": "dyn.somedomain.com",
+                  "type": "A"
+              },
+              "targetRecord": {
+                  "name": "somedomain.com",
+                  "type": "TXT",
+                  "contentMatchRegEx": 
+                  {
+                      "pattern": "\\bip4:",
+                      "group": 0
+                  },
+                  "contentDataExtractRegEx": 
+                  {
+                      "pattern": "\\bip4:([0-9]{1,3}(?:\\.[0-9]{1,3}){3})",
+                      "group": 0
+                  },
+                  "contentReplaceRegEx": 
+                  {
+                      "pattern": "\\b\\d{1,3}(?:\\.\\d{1,3}){3}\\b"
+                  }
+              },
+              "taskType": "UPDATE_RECORD_CONTENT_REGEX",
+              "dryRun": true
+          }
+      ]
+  }
+
+# This is for the secrets for pulling an image from a private repository more information can be found here: https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/
+imagePullSecrets: []
+# This is to override the chart name.
+nameOverride: ""
+fullnameOverride: ""
+
+# This section builds out the service account more information can be found here: https://kubernetes.io/docs/concepts/security/service-accounts/
+serviceAccount:
+  # Specifies whether a service account should be created
+  create: true
+  # Automatically mount a ServiceAccount's API credentials?
+  automount: true
+  # Annotations to add to the service account
+  annotations: {}
+  # The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: ""
+
+# This is for setting Kubernetes Annotations to a Pod.
+# For more information checkout: https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/
+podAnnotations: {}
+# This is for setting Kubernetes Labels to a Pod.
+# For more information checkout: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/
+podLabels: {}
+
+podSecurityContext: {}
+  # fsGroup: 2000
+
+securityContext: {}
+  # capabilities:
+  #   drop:
+  #   - ALL
+  # readOnlyRootFilesystem: true
+  # runAsNonRoot: true
+  # runAsUser: 1000
+
+resources: {}
+  # We usually recommend not to specify default resources and to leave this as a conscious
+  # choice for the user. This also increases chances charts run on environments with little
+  # resources, such as Minikube. If you do want to specify resources, uncomment the following
+  # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
+  # limits:
+  #   cpu: 100m
+  #   memory: 128Mi
+  # requests:
+  #   cpu: 100m
+  #   memory: 128Mi
+
+# Additional volumes on the output Deployment definition.
+volumes:
+  - name: config
+    configMap:
+      name: config.json
+
+# Additional volumeMounts on the output Deployment definition.
+volumeMounts:
+  - name: config
+    mountPath: /app
+    subPath: config.json
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
