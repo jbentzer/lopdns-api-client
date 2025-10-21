@@ -7,7 +7,7 @@ replicaCount: 1
 
 # This sets the container image more information can be found here: https://kubernetes.io/docs/concepts/containers/images/
 image:
-  repository: janben/lop-dns-client
+  repository: janben/lopdns-api-client
   # This sets the pull policy for images.
   pullPolicy: IfNotPresent
   # Overrides the image tag whose default is the chart appVersion.
@@ -21,7 +21,7 @@ env:
   - name: TOKEN_DURATION_SEC
     value: "600"
   - name: INTERVAL
-    value: "60"
+    value: "900"
   - name: ONCE
     value: "false"
   - name: CLIENT_ID
@@ -29,7 +29,7 @@ env:
   - name: VERBOSE
     value: "false"
 
-configMap: |
+configMap: |-
   {
       "dnsTasks":
       [
@@ -126,14 +126,14 @@ resources: {}
 
 # Additional volumes on the output Deployment definition.
 volumes:
-  - name: config
+  - name: config-volume
     configMap:
-      name: config.json
+      name: lopdns-api-client-config
 
 # Additional volumeMounts on the output Deployment definition.
 volumeMounts:
-  - name: config
-    mountPath: /app
+  - name: config-volume
+    mountPath: /app/config.json
     subPath: config.json
 
 nodeSelector: {}

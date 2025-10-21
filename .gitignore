@@ -220,3 +220,14 @@ __marimo__/
 
 # MacOS
 .DS_Store
+
+# Compressed files
+*.zip
+*.tar.gz
+*.tar.bz2
+*.tar.xz
+*.tgz
+*.7z
+*.rar
+*.gz
+*.bz2

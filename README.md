@@ -5,7 +5,7 @@ There is a Postman definition that can be used for testing the API functionality
 
 There is also a Python implementation of a client which copies information between records, typically to be used when a dynamic IP shifts and other records need to be updated (for instance the MX-record) or parts of a TXT record needs to adjusted.
 
-## API Commsnts
+## API Comments
 
 ### Zones
 
