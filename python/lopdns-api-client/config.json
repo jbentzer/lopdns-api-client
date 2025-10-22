@@ -16,6 +16,15 @@
         },
         {
             "zone": "somedomain.com",
+            "targetRecord": {
+                "name": "update.somedomain.com",
+                "type": "A"
+            },
+            "taskType": "UPDATE_RECORD_CONTENT_STATIC",
+            "dryRun": true
+        },
+        {
+            "zone": "somedomain.com",
             "sourceRecord": {
                 "name": "dyn.somedomain.com",
                 "type": "A"
