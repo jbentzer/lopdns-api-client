@@ -15,6 +15,7 @@ class Settings:
     CONFIG_FILE: str = os.environ.get('CONFIG_FILE', 'config.json')
     VERBOSE: bool = os.environ.get('VERBOSE', 'false').lower() in ('1', 'true', 'yes')
     CONFIG_FILE: str = os.environ.get('CONFIG_FILE', 'config.json')
-    CONTENT: str = os.environ.get('CONTENT', '') 
+    CONTENT_STATIC: str = os.environ.get('CONTENT_STATIC', '') 
+    
 class ConfigFile(BaseModel):
     dnsTasks: list[DnsTask] = []

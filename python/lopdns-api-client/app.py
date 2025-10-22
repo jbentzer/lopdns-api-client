@@ -33,7 +33,7 @@ def main():
     parser.add_argument("--CLIENT_ID", "-c", help="The client ID for authentication", default=settings.CLIENT_ID)
     parser.add_argument("--VERBOSE", "-v", help="Enable verbose logging", default=settings.VERBOSE, type=bool)
     parser.add_argument("--CONFIG_FILE", "-f", help="Path to the config file", default=settings.CONFIG_FILE)
-    parser.add_argument("--CONTENT", "-s", help="Static content for DNS tasks", default=settings.CONTENT)
+    parser.add_argument("--CONTENT_STATIC", "-s", help="Static content for DNS tasks", default=settings.CONTENT_STATIC)
 
     args = parser.parse_args()
 
@@ -45,7 +45,7 @@ def main():
     settings.ONCE = args.ONCE
     settings.CLIENT_ID = args.CLIENT_ID
     settings.CONFIG_FILE = args.CONFIG_FILE
-    settings.CONTENT = args.CONTENT
+    settings.CONTENT_STATIC = args.CONTENT_STATIC
 
     if not settings.CLIENT_ID:
         logger.error("CLIENT_ID not set")
@@ -72,7 +72,7 @@ def main():
     try:
         while True:
             for dnsTask in dns_tasks:
-                do_task(client, dnsTask, settings.VERBOSE, settings.CONTENT)
+                do_task(client, dnsTask, settings.VERBOSE, settings.CONTENT_STATIC)
             if settings.ONCE:
                 break
             time.sleep(settings.INTERVAL)
