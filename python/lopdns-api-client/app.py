@@ -7,6 +7,7 @@ import re
 import time
 import logging
 import re
+import argparse
 
 from config import Settings
 from config import ConfigFile
@@ -22,8 +23,32 @@ logger = logging.getLogger(__name__)
     
 def main():
     settings = Settings()
+
+    parser = argparse.ArgumentParser(description="lopdns-api-client application")
+    parser.add_argument("--BASE_URL", "-b", help="The base URL for the API", default=settings.BASE_URL)
+    parser.add_argument("--TIMEOUT", "-t", help="The timeout for the API requests", default=settings.TIMEOUT, type=float)
+    parser.add_argument("--TOKEN_DURATION_SEC", "-d", help="The token duration in seconds", default=settings.TOKEN_DURATION_SEC, type=int)
+    parser.add_argument("--INTERVAL", "-i", help="The interval between requests in seconds", default=settings.INTERVAL, type=int)
+    parser.add_argument("--ONCE", "-o", help="Run only once", default=settings.ONCE, type=bool)
+    parser.add_argument("--CLIENT_ID", "-c", help="The client ID for authentication", default=settings.CLIENT_ID)
+    parser.add_argument("--VERBOSE", "-v", help="Enable verbose logging", default=settings.VERBOSE, type=bool)
+    parser.add_argument("--CONFIG_FILE", "-f", help="Path to the config file", default=settings.CONFIG_FILE)
+    parser.add_argument("--CONTENT", "-s", help="Static content for DNS tasks", default=settings.CONTENT)
+
+    args = parser.parse_args()
+
+    settings.VERBOSE = args.VERBOSE
+    settings.BASE_URL = args.BASE_URL
+    settings.TIMEOUT = args.TIMEOUT 
+    settings.TOKEN_DURATION_SEC = args.TOKEN_DURATION_SEC
+    settings.INTERVAL = args.INTERVAL
+    settings.ONCE = args.ONCE
+    settings.CLIENT_ID = args.CLIENT_ID
+    settings.CONFIG_FILE = args.CONFIG_FILE
+    settings.CONTENT = args.CONTENT
+
     if not settings.CLIENT_ID:
-        logger.error("CLIENT_ID not set in environment")
+        logger.error("CLIENT_ID not set")
         return
     rest_client = RestClient(base_url=settings.BASE_URL, timeout=settings.TIMEOUT)
     client = LopApiClient(rest_client)
@@ -47,14 +72,14 @@ def main():
     try:
         while True:
             for dnsTask in dns_tasks:
-                do_task(client, dnsTask, settings.VERBOSE)
+                do_task(client, dnsTask, settings.VERBOSE, settings.CONTENT)
             if settings.ONCE:
                 break
             time.sleep(settings.INTERVAL)
     except KeyboardInterrupt:
         logger.info("Shutting down")
 
-def do_task(client: LopApiClient, dnsTask: DnsTask, verbose: bool = False):
+def do_task(client: LopApiClient, dnsTask: DnsTask, verbose: bool = False, static_content: str = ""):
     if not isinstance(dnsTask, DnsTask):
         logger.error("Invalid dnsTask provided")
         return
@@ -74,6 +99,13 @@ def do_task(client: LopApiClient, dnsTask: DnsTask, verbose: bool = False):
     oldContentInRecordToBeUpdated = ""
     sourceFound = False
     targetFound = False
+
+    if (dnsTask.taskType == "UPDATE_RECORD_CONTENT_STATIC"):
+        if (not static_content):
+            logger.error("CONTENT must be provided for UPDATE_RECORD_CONTENT_STATIC task")
+            return
+        sourceRecordData = static_content
+        sourceFound = True
 
     records = client.getRecords(dnsTask.zone)
 
@@ -150,10 +182,10 @@ def do_task(client: LopApiClient, dnsTask: DnsTask, verbose: bool = False):
         else:
             new_content = sourceRecordData
         if dnsTask.dryRun:
-            logger.info("[Dry run] Record of type %s and old content %s in zone %s updated with new content %s", dnsTask.targetRecord.type, oldContentInRecordToBeUpdated, dnsTask.zone, new_content)
+            logger.info("[Dry run] Record of type '%s' and old content '%s' in zone '%s' updated with new content '%s'", dnsTask.targetRecord.type, oldContentInRecordToBeUpdated, dnsTask.zone, new_content)
             return
         update_response = client.updateRecord(dnsTask.zone, dnsTask.targetRecord.name, dnsTask.targetRecord.type, oldContentInRecordToBeUpdated, new_content)
-        logger.info("Record of type %s and old content %s in zone %s updated with new content %s: %s", dnsTask.targetRecord.type, oldContentInRecordToBeUpdated, dnsTask.zone, new_content, update_response)
+        logger.info("Record of type '%s' and old content '%s' in zone '%s' updated with new content '%s': '%s'", dnsTask.targetRecord.type, oldContentInRecordToBeUpdated, dnsTask.zone, new_content, update_response)
     else:
         if (verbose):
             logger.info("Data in source and target records are identical, no update needed")
