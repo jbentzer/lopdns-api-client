@@ -34,6 +34,7 @@ def main():
     parser.add_argument("--VERBOSE", "-v", help="Enable verbose logging", default=settings.VERBOSE, type=bool)
     parser.add_argument("--CONFIG_FILE", "-f", help="Path to the config file", default=settings.CONFIG_FILE)
     parser.add_argument("--CONTENT_STATIC", "-s", help="Static content for DNS tasks", default=settings.CONTENT_STATIC)
+    parser.add_argument("--LOG_LEVEL", "-l", help="Logging level", default=settings.LOG_LEVEL)
 
     args = parser.parse_args()
 
@@ -46,9 +47,15 @@ def main():
     settings.CLIENT_ID = args.CLIENT_ID
     settings.CONFIG_FILE = args.CONFIG_FILE
     settings.CONTENT_STATIC = args.CONTENT_STATIC
+    settings.LOG_LEVEL = args.LOG_LEVEL
+
+    logger.setLevel(getattr(logging, settings.LOG_LEVEL.upper(), logging.INFO))
+    if settings.VERBOSE:
+        logger.setLevel(logging.DEBUG)
+        logger.debug("Verbose logging enabled")
 
     if not settings.CLIENT_ID:
-        logger.error("CLIENT_ID not set")
+        logger.critical("CLIENT_ID not set")
         return
     rest_client = RestClient(base_url=settings.BASE_URL, timeout=settings.TIMEOUT)
     client = LopApiClient(rest_client)
@@ -61,7 +68,7 @@ def main():
 
     token = client.authenticate(settings.CLIENT_ID, duration=int(settings.TOKEN_DURATION_SEC))
     if not client.validate_token():
-        logger.error("Token validation failed")
+        logger.critical("Token validation failed")
         return
     logger.info("Token retrieved successfully")
 
@@ -72,21 +79,20 @@ def main():
     try:
         while True:
             for dnsTask in dns_tasks:
-                do_task(client, dnsTask, settings.VERBOSE, settings.CONTENT_STATIC)
+                do_task(client, dnsTask, settings.CONTENT_STATIC)
             if settings.ONCE:
                 break
             time.sleep(settings.INTERVAL)
     except KeyboardInterrupt:
         logger.info("Shutting down")
 
-def do_task(client: LopApiClient, dnsTask: DnsTask, verbose: bool = False, static_content: str = ""):
+def do_task(client: LopApiClient, dnsTask: DnsTask, static_content: str = ""):
     if not isinstance(dnsTask, DnsTask):
         logger.error("Invalid dnsTask provided")
         return
     
     zones = client.getZones()
-    if (verbose):
-        logger.info("Zones: %s", [zone.name for zone in zones] if isinstance(zones, list) else zones)
+    logger.debug("Zones: %s", [zone.name for zone in zones] if isinstance(zones, list) else zones)
     if isinstance(zones, dict) and "error" in zones:
         logger.error("Error fetching zones: %s", zones["error"])
         return
@@ -109,9 +115,8 @@ def do_task(client: LopApiClient, dnsTask: DnsTask, verbose: bool = False, stati
 
     records = client.getRecords(dnsTask.zone)
 
-    if (verbose):
-        logger.info("Zone for task: %s", dnsTask.zone)
-        logger.info("Records in zone %s: ", dnsTask.zone)
+    logger.debug("Zone for task: %s", dnsTask.zone)
+    logger.debug("Records in zone %s: ", dnsTask.zone)
 
     # Iterate records to find source and target records
     for record in records if isinstance(records, list) else []:
@@ -119,8 +124,7 @@ def do_task(client: LopApiClient, dnsTask: DnsTask, verbose: bool = False, stati
         if sourceFound and targetFound:
             break
 
-        if (verbose):
-            logger.info("Record %s of type %s: %s", record.name, record.type, record.content)
+        logger.debug("Record %s of type %s: %s", record.name, record.type, record.content)
         
         # Find the source record and extract the current data
         if (
@@ -137,8 +141,8 @@ def do_task(client: LopApiClient, dnsTask: DnsTask, verbose: bool = False, stati
                 sourceRecordData = record.content
             sourceFound = True
 
-            if (sourceRecordData and verbose):
-                logger.info("Source data: %s", sourceRecordData)
+            if (sourceRecordData):
+                logger.debug("Source data: %s", sourceRecordData)
 
         # Find the target record to be updated and extract the data to be replaced
         if (
@@ -157,8 +161,8 @@ def do_task(client: LopApiClient, dnsTask: DnsTask, verbose: bool = False, stati
                 dataInRecordToBeUpdated = record.content
             targetFound = True
 
-            if (oldContentInRecordToBeUpdated and verbose):
-                logger.info("Target data: %s", dataInRecordToBeUpdated)
+            if (oldContentInRecordToBeUpdated):
+                logger.debug("Target data: %s", dataInRecordToBeUpdated)
 
     if not sourceFound:
         logger.error("Could not find source record")
@@ -169,12 +173,10 @@ def do_task(client: LopApiClient, dnsTask: DnsTask, verbose: bool = False, stati
     if not dataInRecordToBeUpdated:
         logger.error("Could not find the data within the target record")
         return
-    if (verbose):
-        logger.info("Existing data to be replaced: %s", dataInRecordToBeUpdated)
-        logger.info("New data: %s", sourceRecordData)
+    logger.debug("Existing data to be replaced: %s", dataInRecordToBeUpdated)
+    logger.debug("New data: %s", sourceRecordData)
     if dataInRecordToBeUpdated != sourceRecordData:
-        if (verbose):
-            logger.info("Data has changed, updating record")
+        logger.debug("Data has changed, updating record")
         # Substitute the data in the record content
         new_content = ""
         if dnsTask.targetRecord.contentReplaceRegEx:
@@ -187,8 +189,7 @@ def do_task(client: LopApiClient, dnsTask: DnsTask, verbose: bool = False, stati
         update_response = client.updateRecord(dnsTask.zone, dnsTask.targetRecord.name, dnsTask.targetRecord.type, oldContentInRecordToBeUpdated, new_content)
         logger.info("Record with name '%s' of type '%s' and old content '%s' in zone '%s' updated with new content '%s'.", dnsTask.targetRecord.name, dnsTask.targetRecord.type, oldContentInRecordToBeUpdated, dnsTask.zone, new_content)
     else:
-        if (verbose):
-            logger.info("Data in source and target records are identical, no update needed")
+        logger.debug("Data in source and target records are identical, no update needed")
 
 if __name__ == "__main__":
     main()

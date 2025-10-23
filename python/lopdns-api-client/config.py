@@ -16,6 +16,7 @@ class Settings:
     VERBOSE: bool = os.environ.get('VERBOSE', 'false').lower() in ('1', 'true', 'yes')
     CONFIG_FILE: str = os.environ.get('CONFIG_FILE', 'config.json')
     CONTENT_STATIC: str = os.environ.get('CONTENT_STATIC', '') 
+    LOG_LEVEL: str = os.environ.get('LOG_LEVEL', 'INFO')
     
 class ConfigFile(BaseModel):
     dnsTasks: list[DnsTask] = []
