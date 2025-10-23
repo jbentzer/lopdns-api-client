@@ -185,7 +185,7 @@ def do_task(client: LopApiClient, dnsTask: DnsTask, verbose: bool = False, stati
             logger.info("[Dry run] Record with name '%s' of type '%s' and old content '%s' in zone '%s' updated with new content '%s'", dnsTask.targetRecord.name, dnsTask.targetRecord.type, oldContentInRecordToBeUpdated, dnsTask.zone, new_content)
             return
         update_response = client.updateRecord(dnsTask.zone, dnsTask.targetRecord.name, dnsTask.targetRecord.type, oldContentInRecordToBeUpdated, new_content)
-        logger.info("Record with name '%s' of type '%s' and old content '%s' in zone '%s' updated with new content '%s': '%s'", dnsTask.targetRecord.name, dnsTask.targetRecord.type, oldContentInRecordToBeUpdated, dnsTask.zone, new_content, update_response)
+        logger.info("Record with name '%s' of type '%s' and old content '%s' in zone '%s' updated with new content '%s'.", dnsTask.targetRecord.name, dnsTask.targetRecord.type, oldContentInRecordToBeUpdated, dnsTask.zone, new_content)
     else:
         if (verbose):
             logger.info("Data in source and target records are identical, no update needed")

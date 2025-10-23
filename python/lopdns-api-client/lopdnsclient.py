@@ -98,7 +98,7 @@ class LopApiClient:
             try:
                 args: json = {"oldName": oldRecordName, "matchingType": matchingType, "oldValue": oldContents, "newValue": newContents}
                 response = self.rest_client.put(path, json=args, headers=headers)
-                return Record(**response) if isinstance(response, dict) else {}
+                return Record(name=response.get("name", ""), type=response.get("type", ""), content=response.get("data", ""), ttl=response.get("ttl", 0), prio=response.get("priority", 0)) if isinstance(response, dict) else {}
             except Exception as e:
                 return {"error": str(e)}
 
