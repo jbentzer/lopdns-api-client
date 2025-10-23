@@ -96,7 +96,8 @@ class LopApiClient:
             path = f"/records/{zone}"
             headers = {"x-token": f"{self.token.token}"}
             try:
-                response = self.rest_client.put(path, json={"oldRecordName": oldRecordName, "matchingType": matchingType, "oldValue": oldContents, "newValue": newContents}, headers=headers)
+                args: json = {"oldName": oldRecordName, "matchingType": matchingType, "oldValue": oldContents, "newValue": newContents}
+                response = self.rest_client.put(path, json=args, headers=headers)
                 return Record(**response) if isinstance(response, dict) else {}
             except Exception as e:
                 return {"error": str(e)}
