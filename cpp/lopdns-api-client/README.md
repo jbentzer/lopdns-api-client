@@ -55,3 +55,14 @@ Get all records for a specific zone:
 ```bash
 ./lopdns-api-client -c "<client-id>" -a get-records -z "<zone>"
 ```
+
+Update a record for a specific zone, type, name and content:
+
+```bash
+./lopdns-api-client -c "<client-id>" -a update-record -z "<zone>" -r "<record type>" -n "<record name>" -u "<current contents>" -w "<new contents>"
+```
+
+Update all records in a zone with the specific name and type:
+```bash
+./lopdns-api-client -c "<client-id>" -a update-record -z "<zone>" -r "<record type>" -n "<record name>" -w "<new contents>" --all-records
+```
