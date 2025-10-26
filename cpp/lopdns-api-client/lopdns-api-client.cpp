@@ -42,8 +42,9 @@ struct Settings
     std::string zone;
     std::string record_name;
     std::string record_type = "A";
-    std::string old_content;
+    std::string current_content;
     std::string new_content;
+    bool all_records = false;
 };
 
 void trim(std::string& s) {
@@ -75,9 +76,10 @@ int main(int argc, char* argv[])
     args::ValueFlag<std::string> zone(parser, "zone", "The DNS zone to update", {'z', "zone"}, "");
     args::ValueFlag<std::string> record_type(parser, "record_type", "The type of the DNS record", {'r', "record-type"}, "A");
     args::ValueFlag<std::string> record_name(parser, "record_name", "The name of the DNS record", {'n', "record-name"}, "");
-    args::ValueFlag<std::string> old_content(parser, "old_content", "Old content for DNS tasks", {'o', "old-content"}, "");
+    args::ValueFlag<std::string> current_content(parser, "current_content", "Current content for DNS tasks", {'u', "current-content"}, "");
     args::ValueFlag<std::string> new_content(parser, "new_content", "New content for DNS tasks", {'w', "new-content"}, "");
     args::ValueFlag<std::string> action(parser, "action", "The action to perform", {'a', "action"}, "");
+    args::Flag all_records(parser, "all_records", "Flag to indicate that all applicable records should be processed", {'A', "all-records"}, false);
 
     try
     {
@@ -101,6 +103,9 @@ int main(int argc, char* argv[])
         return 1;
     }
 
+    if (all_records) {
+        settings.all_records = args::get(all_records);
+    }
     if (action) {
         std::string actionStr = args::get(action);
         trim(actionStr);
@@ -151,12 +156,12 @@ int main(int argc, char* argv[])
         std::cerr << "Record name is required.\n";
         return 1;
     }
-    if (old_content) {
-        std::string oldContentStr = args::get(old_content);
+    if (current_content) {
+        std::string oldContentStr = args::get(current_content);
         trim(oldContentStr);
-        settings.old_content = oldContentStr;
-    } else if (settings.action == ACTION_UPDATE_RECORD) {
-        std::cerr << "Old content is required.\n";
+        settings.current_content = oldContentStr;
+    } else if (settings.action == ACTION_UPDATE_RECORD && !settings.all_records) {
+        std::cerr << "Current content is required.\n";
         return 1;
     }
     if (new_content) {
@@ -197,7 +202,7 @@ int main(int argc, char* argv[])
         std::cout << "  Zone: " << settings.zone << std::endl;
         std::cout << "  Record Type: " << settings.record_type << std::endl;
         std::cout << "  Record Name: " << settings.record_name << std::endl;
-        std::cout << "  Old Content: " << settings.old_content << std::endl;
+        std::cout << "  Current Content: " << settings.current_content << std::endl;
         std::cout << "  New Content: " << settings.new_content << std::endl;
     }
 
@@ -249,13 +254,35 @@ int main(int argc, char* argv[])
         }
         case ACTION_UPDATE_RECORD:
         {
-            Record updatedRecord = client.updateRecord(settings.zone, settings.record_name,
-                                                       settings.record_type, settings.old_content,
-                                                       settings.new_content);
-            std::cout << "Updated Record:\n";
-            std::cout << "  Name: " << updatedRecord.name << ", Type: " << updatedRecord.type
-                      << ", Content: " << updatedRecord.content << ", TTL: " << updatedRecord.ttl
-                      << ", Priority: " << updatedRecord.priority << "\n";
+            auto records = client.getRecords(settings.zone);
+            bool found = false;
+            for (const auto& record : records) {
+                if (record.name == settings.record_name && 
+                    record.type == settings.record_type && 
+                        ((settings.all_records && settings.current_content.empty()) || 
+                        record.content == settings.current_content)) {
+                    if (settings.new_content == record.content) {
+                        std::cout << "Record content is already up to date for record: " << record.name << "\n";
+                        continue;
+                    }
+                    Record updatedRecord = client.updateRecord(settings.zone, settings.record_name,
+                                                                settings.record_type, record.content,
+                                                                settings.new_content);
+                    std::cout << "Updated Record:\n";
+                    std::cout << "  Name: " << updatedRecord.name << ", Type: " << updatedRecord.type
+                                << ", Content: " << updatedRecord.content << ", TTL: " << updatedRecord.ttl
+                                << ", Priority: " << updatedRecord.priority << "\n";
+                    found = true;
+                    if (!settings.all_records) {
+                        break;
+                    }
+                }
+            }
+            if (!found) {
+                std::cout << "No records updated for name: " << settings.record_name
+                            << " and type: " << settings.record_type << "\n";
+                return 1;
+            }
             break;
         }
         default:
