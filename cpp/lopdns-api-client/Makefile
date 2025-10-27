@@ -2,7 +2,11 @@
 
 # Compiler and flags
 CC = g++
-CFLAGS = -Wall -O2 -std=c++17 -I/usr/local/include -L/usr/local/lib -lrestclient-cpp
+CFLAGS = -Wall -O2 -std=c++17 
+INC = -I/usr/local/include 
+LIB = -L/usr/local/lib
+LIBS += -lrestclient-cpp
+
 
 # Source and output
 SRC = lopdns-api-client.cpp lopdnsclient.cpp
@@ -13,7 +17,7 @@ all: $(OUT)
 
 # build lopdns-api-client
 $(OUT): $(SRC)
-	$(CC) $(CFLAGS) -o $(OUT) $(SRC)
+	$(CC) -o $(OUT) $(CFLAGS) $(INC) $(SRC) $(LIB) $(LIBS)
 	@echo "Build of lopdns-api-client complete!"
 
 # Second target: clean up generated files

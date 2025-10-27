@@ -6,6 +6,12 @@
 
 #### restclient-cpp
 
+Might require curl dev to be installed:
+
+```bash
+sudo apt install libcurl4-openssl-dev -y
+```
+
 ```bash
 git clone git@github.com:mrtazz/restclient-cpp.git
 sudo apt-get install libcurl4-openssl-dev
@@ -13,6 +19,7 @@ cd restclient-cpp
 ./autogen.sh
 ./configure 
 sudo make install
+sudo cp /usr/local/lib/librestclient-cpp.so.1 /usr/lib
 ```
 
 #### json

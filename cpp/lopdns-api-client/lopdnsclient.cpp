@@ -35,7 +35,7 @@ bool LopDnsClient::authenticate(const std::string& client_id, const int duration
     {
         if (verbose) {
             std::cout << "Authentication successful. Response: " << response.body << std::endl;
-        }   
+        }
         // Parse response and set token details
         json responseBody = json::parse(response.body);
         this->token.token = responseBody["token"];
