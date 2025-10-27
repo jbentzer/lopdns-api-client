@@ -2,19 +2,20 @@
 
 ## Build
 
-Get the dependencies, for instance by cloning the repos and build them.
+### Dependencies
 
-### restclient-cpp
+#### restclient-cpp
 
 ```bash
 git clone git@github.com:mrtazz/restclient-cpp.git
+sudo apt-get install libcurl4-openssl-dev
 cd restclient-cpp
 ./autogen.sh
 ./configure 
 sudo make install
 ```
 
-### json
+#### json
 
 ```bash
 git clone git@github.com:nlohmann/json.git 
@@ -22,12 +23,20 @@ cd json/include
 sudo cp -r nlohmann /usr/local/include
 ```
 
-### args
+#### args
 
 ```bash
 git clone git@github.com:Taywee/args.git
 cd args
 sudo make install
+```
+
+### Build
+
+In the source code directory, type:
+
+```bash
+make
 ```
 
 ## Run
