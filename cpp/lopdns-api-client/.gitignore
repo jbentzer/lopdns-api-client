@@ -1,1 +1,3 @@
 lopdns-api-client
+*.dSYM
+.vscode/launch
