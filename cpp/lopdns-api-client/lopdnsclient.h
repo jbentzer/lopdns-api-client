@@ -36,7 +36,7 @@ typedef struct Token
 class LopDnsClient
 {
 public:
-    LopDnsClient(const std::string& url = "https://api.lopdns.se/v2", int timeoutInSeconds = 10, bool verbose = false);
+    LopDnsClient(const std::string& url = "https://api.lopdns.se/v2", int timeoutInSeconds = 10);
     ~LopDnsClient();
 
     // Methods for interacting with the API
@@ -52,7 +52,6 @@ private:
     Token token;
     std::string url;
     int timeout;
-    bool verbose;
     RestClient::Response makeRestCall(const std::string& method, const std::string& endpoint, bool applyAuthHeaders = true,
                       const RestClient::HeaderFields& headers = RestClient::HeaderFields(),
                       const std::map<std::string, std::string>& queryParams = std::map<std::string, std::string>(),

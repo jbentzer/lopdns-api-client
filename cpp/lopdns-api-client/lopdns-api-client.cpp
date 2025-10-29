@@ -14,6 +14,10 @@
 #include <args.hxx>
 #include <restclient-cpp/connection.h>
 #include <restclient-cpp/restclient.h>
+#include "plog/Log.h"
+#include "plog/Init.h"
+#include "plog/Formatters/TxtFormatter.h"
+#include "plog/Appenders/ColorConsoleAppender.h"
 #include "lopdnsclient.h"
 
 
@@ -25,10 +29,24 @@ typedef enum ActionType {
     ACTION_UPDATE_RECORD
 } ActionType;
 
+typedef enum LogLevelType {
+    LOGLEVEL_ERROR,
+    LOGLEVEL_WARNING,
+    LOGLEVEL_INFO,
+    LOGLEVEL_DEBUG
+} LogLevelType;
+
 const std::map<std::string, ActionType> actionMap = {
     {"get-zones", ACTION_GET_ZONES},
     {"get-records", ACTION_GET_RECORDS},
     {"update-record", ACTION_UPDATE_RECORD}
+};
+
+const std::map<std::string, LogLevelType> logLevelMap = {
+    {"error", LOGLEVEL_ERROR},
+    {"warning", LOGLEVEL_WARNING},
+    {"info", LOGLEVEL_INFO},
+    {"debug", LOGLEVEL_DEBUG}
 };
 
 struct Settings
@@ -37,7 +55,6 @@ struct Settings
     int timeout = 10;
     int token_duration_sec = 3600;
     std::string client_id;
-    bool verbose = false;
     ActionType action = ACTION_GET_ZONES;
     std::string zone;
     std::string record_name;
@@ -45,6 +62,7 @@ struct Settings
     std::string current_content;
     std::string new_content;
     bool all_records = false;
+    LogLevelType log_level = LOGLEVEL_INFO;
 };
 
 void trim(std::string& s) {
@@ -58,8 +76,12 @@ void trim(std::string& s) {
 
 int main(int argc, char* argv[])
 {
+  static plog::ColorConsoleAppender<plog::TxtFormatter> consoleAppender;
+  plog::init(plog::info, &consoleAppender);
+  
   try
   {
+
     Settings settings;
 
     std::string actionMsg = "The action to perform. Valid actions are: ";
@@ -72,7 +94,6 @@ int main(int argc, char* argv[])
     args::ValueFlag<int> timeout(parser, "timeout", "The timeout for the API requests", {'t', "timeout"}, 10);
     args::ValueFlag<int> token_duration_sec(parser, "token_duration_sec", "The token duration in seconds", {'d', "token-duration-sec"}, 3600);
     args::ValueFlag<std::string> client_id(parser, "client_id", "The client ID for authentication", {'c', "client-id"}, "");
-    args::Flag verbose(parser, "verbose", "Enable verbose logging", {'v', "verbose"}, false);
     args::ValueFlag<std::string> zone(parser, "zone", "The DNS zone to update", {'z', "zone"}, "");
     args::ValueFlag<std::string> record_type(parser, "record_type", "The type of the DNS record", {'r', "record-type"}, "A");
     args::ValueFlag<std::string> record_name(parser, "record_name", "The name of the DNS record", {'n', "record-name"}, "");
@@ -80,6 +101,7 @@ int main(int argc, char* argv[])
     args::ValueFlag<std::string> new_content(parser, "new_content", "New content for DNS tasks", {'w', "new-content"}, "");
     args::ValueFlag<std::string> action(parser, "action", "The action to perform", {'a', "action"}, "");
     args::Flag all_records(parser, "all_records", "Flag to indicate that all applicable records should be processed", {'A', "all-records"}, false);
+    args::ValueFlag<std::string> log_level(parser, "log_level", "The logging level (error, warning, info, debug)", {'l', "log-level"}, "info");
 
     try
     {
@@ -92,17 +114,44 @@ int main(int argc, char* argv[])
     }
     catch (args::ParseError const& e)
     {
-        std::cerr << e.what() << std::endl;
-        std::cerr << parser;
+        LOG_ERROR << e.what();
+        LOG_ERROR << parser;
         return 1;
     }
     catch (args::ValidationError const& e)
     {
-        std::cerr << e.what() << std::endl;
-        std::cerr << parser;
+        LOG_ERROR << e.what();
+        LOG_ERROR << parser;
         return 1;
     }
 
+    if (log_level) {
+        std::string logLevelStr = args::get(log_level);
+        trim(logLevelStr);
+        auto it = logLevelMap.find(logLevelStr);
+        if (it == logLevelMap.end()) {
+            std::cerr << "Invalid log level specified: " << logLevelStr << ". Valid levels are: error, warning, info, debug.\n";
+            return 1;
+        }
+        settings.log_level = it->second;
+    }
+    switch (settings.log_level) {
+        case LOGLEVEL_ERROR:
+            plog::get()->setMaxSeverity(plog::error);
+            break;
+        case LOGLEVEL_WARNING:
+            plog::get()->setMaxSeverity(plog::warning);
+            break;
+        case LOGLEVEL_INFO:
+            plog::get()->setMaxSeverity(plog::info);
+            break;
+        case LOGLEVEL_DEBUG:
+            plog::get()->setMaxSeverity(plog::debug);
+            break;
+        default:
+            plog::get()->setMaxSeverity(plog::info);
+            break;
+    }
     if (all_records) {
         settings.all_records = args::get(all_records);
     }
@@ -113,15 +162,15 @@ int main(int argc, char* argv[])
         if (it != actionMap.end()) {
             settings.action = it->second;
         } else {
-            std::cerr << "Invalid action specified: " << actionStr << ".\n";
-            std::cout << "Valid actions are:\n";
+            LOG_ERROR << "Invalid action specified: " << actionStr << ".";
+            LOG_INFO << "Valid actions are:";
             for (const auto& pair : actionMap) {
-                std::cout << "  " << pair.first << "\n";
+                LOG_INFO << "  " << pair.first;
             }
             return 1;
         }
     } else {
-        std::cerr << "Action is required.\n";
+        LOG_ERROR << "Action is required.";
         return 1;
     }
     if (client_id) {
@@ -129,7 +178,7 @@ int main(int argc, char* argv[])
         trim(clientIdStr);
         settings.client_id = clientIdStr;
     } else {
-        std::cerr << "Client ID is required.\n";
+        LOG_ERROR << "Client ID is required.";
         return 1;
     }
     if (record_type) {
@@ -137,7 +186,7 @@ int main(int argc, char* argv[])
         trim(recordTypeStr);
         settings.record_type = recordTypeStr;
     } else if (settings.action == ACTION_UPDATE_RECORD) {
-        std::cerr << "Record type is required.\n";
+        LOG_ERROR << "Record type is required.";
         return 1;
     }
     if (zone) {
@@ -145,7 +194,7 @@ int main(int argc, char* argv[])
         trim(zoneStr);
         settings.zone = zoneStr;
     } else if (settings.action == ACTION_UPDATE_RECORD) {
-        std::cerr << "Zone is required.\n";
+        LOG_ERROR << "Zone is required.";
         return 1;
     }
     if (record_name) {
@@ -153,7 +202,7 @@ int main(int argc, char* argv[])
         trim(recordNameStr);
         settings.record_name = recordNameStr;
     } else if (settings.action == ACTION_UPDATE_RECORD) {
-        std::cerr << "Record name is required.\n";
+        LOG_ERROR << "Record name is required.";
         return 1;
     }
     if (current_content) {
@@ -161,7 +210,7 @@ int main(int argc, char* argv[])
         trim(oldContentStr);
         settings.current_content = oldContentStr;
     } else if (settings.action == ACTION_UPDATE_RECORD && !settings.all_records) {
-        std::cerr << "Current content is required.\n";
+        LOG_ERROR << "Current content is required.";
         return 1;
     }
     if (new_content) {
@@ -169,7 +218,7 @@ int main(int argc, char* argv[])
         trim(newContentStr);
         settings.new_content = newContentStr;
     } else if (settings.action == ACTION_UPDATE_RECORD) {
-        std::cerr << "New content is required.\n";
+        LOG_ERROR << "New content is required.";
         return 1;
     }
     if (base_url) {
@@ -183,48 +232,43 @@ int main(int argc, char* argv[])
     if (token_duration_sec) {
         settings.token_duration_sec = args::get(token_duration_sec);
     }
-    if (verbose) {
-        settings.verbose = args::get(verbose);
-    }
-    if (settings.verbose) {
-        std::cout << "Settings:" << std::endl;
-        std::cout << "  Base URL: " << settings.base_url << std::endl;
-        std::cout << "  Timeout: " << settings.timeout << " seconds" << std::endl;
-        std::cout << "  Token Duration: " << settings.token_duration_sec << " seconds" << std::endl;
-        std::cout << "  Client ID: " << settings.client_id << std::endl;
-        std::cout << "  Action: ";
-        for (const auto& pair : actionMap) {
-            if (pair.second == settings.action) {
-                std::cout << pair.first << std::endl;
-                break;
-            }
+    LOG_DEBUG << "Settings:";
+    LOG_DEBUG << "  Base URL: " << settings.base_url;
+    LOG_DEBUG << "  Timeout: " << settings.timeout << " seconds";
+    LOG_DEBUG << "  Token Duration: " << settings.token_duration_sec << " seconds";
+    LOG_DEBUG << "  Client ID: " << settings.client_id;
+    LOG_DEBUG << "  Action: ";
+    for (const auto& pair : actionMap) {
+        if (pair.second == settings.action) {
+            LOG_DEBUG << pair.first;
+            break;
         }
-        std::cout << "  Zone: " << settings.zone << std::endl;
-        std::cout << "  Record Type: " << settings.record_type << std::endl;
-        std::cout << "  Record Name: " << settings.record_name << std::endl;
-        std::cout << "  Current Content: " << settings.current_content << std::endl;
-        std::cout << "  New Content: " << settings.new_content << std::endl;
     }
+    LOG_DEBUG << "  Zone: " << settings.zone;
+    LOG_DEBUG << "  Record Type: " << settings.record_type;
+    LOG_DEBUG << "  Record Name: " << settings.record_name;
+    LOG_DEBUG << "  Current Content: " << settings.current_content;
+    LOG_DEBUG << "  New Content: " << settings.new_content;
 
 
-    LopDnsClient client(settings.base_url, settings.timeout, settings.verbose);
+    LopDnsClient client(settings.base_url, settings.timeout);
 
     if (!client.authenticate(settings.client_id, settings.token_duration_sec)) {
-        std::cerr << "Authentication failed.\n";
+        LOG_ERROR << "Authentication failed.";
         return 1;
     }
 
     std::list<std::string> zones = client.getZones();
     if (!settings.zone.empty()) {
         if (std::find(zones.begin(), zones.end(), settings.zone) == zones.end()) {
-            std::cerr << "Specified zone not found: " << settings.zone << "\n";
+            LOG_ERROR << "Specified zone not found: " << settings.zone;
             return 1;
         }
         zones = {settings.zone};
     }
     else {
         if (zones.empty()) {
-            std::cerr << "No zones available to retrieve records from.\n";
+            LOG_ERROR << "No zones available to retrieve records from.";
             return 1;
         }
     }
@@ -232,9 +276,9 @@ int main(int argc, char* argv[])
     switch (settings.action) {
         case ACTION_GET_ZONES:
         {
-            std::cout << "Zones:\n";
+            LOG_INFO << "Zones:";
             for (const auto& zone : zones) {
-                std::cout << "  " << zone << "\n";
+                LOG_INFO << "  " << zone;
             }
             break;
         }
@@ -242,10 +286,10 @@ int main(int argc, char* argv[])
         {
             // Retrieve and print records for each zone
             for (const auto& zone : zones) {
-                std::cout << "Records in zone " << zone << ":\n";
+                LOG_INFO << "Records in zone " << zone << ":";
                 auto records = client.getRecords(zone);
                 for (const auto& record : records) {
-                    std::cout << "  Name: " << record.name << ", Type: " << record.type
+                    LOG_INFO << "  Name: " << record.name << ", Type: " << record.type
                               << ", Content: " << record.content << ", TTL: " << record.ttl
                               << ", Priority: " << record.priority << "\n";
                 }
@@ -262,16 +306,16 @@ int main(int argc, char* argv[])
                         ((settings.all_records && settings.current_content.empty()) || 
                         record.content == settings.current_content)) {
                     if (settings.new_content == record.content) {
-                        std::cout << "Record content is already up to date for record: " << record.name << "\n";
+                        LOG_INFO << "Record content is already up to date for record: " << record.name << "\n";
                         continue;
                     }
                     Record updatedRecord = client.updateRecord(settings.zone, settings.record_name,
                                                                 settings.record_type, record.content,
                                                                 settings.new_content);
-                    std::cout << "Updated Record:\n";
-                    std::cout << "  Name: " << updatedRecord.name << ", Type: " << updatedRecord.type
-                                << ", Content: " << updatedRecord.content << ", TTL: " << updatedRecord.ttl
-                                << ", Priority: " << updatedRecord.priority << "\n";
+                    LOG_INFO << "Updated Record:\n";
+                    LOG_INFO << "  Name: " << updatedRecord.name << ", Type: " << updatedRecord.type
+                              << ", Content: " << updatedRecord.content << ", TTL: " << updatedRecord.ttl
+                              << ", Priority: " << updatedRecord.priority << "\n";
                     found = true;
                     if (!settings.all_records) {
                         break;
@@ -279,20 +323,20 @@ int main(int argc, char* argv[])
                 }
             }
             if (!found) {
-                std::cout << "No records updated for name: " << settings.record_name
-                            << " and type: " << settings.record_type << "\n";
+                LOG_INFO << "No records updated for name: " << settings.record_name
+                          << " and type: " << settings.record_type << "\n";
                 return 1;
             }
             break;
         }
         default:
-            std::cerr << "Unknown action.\n";
+            LOG_ERROR << "Unknown action.";
             return 1;
     }
   }
   catch (std::exception& e)
   {
-    std::cout << "Exception: " << e.what() << "\n";
+    LOG_ERROR << "Exception: " << e.what();
   }
 
   return 0;

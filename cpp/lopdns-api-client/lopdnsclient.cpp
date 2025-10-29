@@ -1,19 +1,19 @@
 #include <nlohmann/json.hpp>
 #include <restclient-cpp/connection.h>
 #include <restclient-cpp/restclient.h>
+#include "plog/Log.h"
 
 #include "lopdnsclient.h"
 #include <iostream>
 
 using json = nlohmann::json;
 
-LopDnsClient::LopDnsClient(const std::string& url, int timeoutInSeconds, bool verbose)
+LopDnsClient::LopDnsClient(const std::string& url, int timeoutInSeconds)
 {
     RestClient::init();
 
     this->url = url;
     this->timeout = timeoutInSeconds;
-    this->verbose = verbose;
 }
 
 LopDnsClient::~LopDnsClient()
@@ -33,9 +33,7 @@ bool LopDnsClient::authenticate(const std::string& client_id, const int duration
     RestClient::Response response = makeRestCall("GET", "/auth/token", false, headers, queryParams);
     if (response.code >= 200 && response.code < 300)
     {
-        if (verbose) {
-            std::cout << "Authentication successful. Response: " << response.body << std::endl;
-        }
+        LOG_DEBUG << "Authentication successful. Response: " << response.body;
         // Parse response and set token details
         json responseBody = json::parse(response.body);
         this->token.token = responseBody["token"];
@@ -46,7 +44,7 @@ bool LopDnsClient::authenticate(const std::string& client_id, const int duration
         return true;
     }
     else {
-        std::cerr << "Authentication call failed with code: " << response.code << std::endl;
+        LOG_ERROR << "Authentication call failed with code: " << response.code;
     }
     return false;
 }
@@ -73,13 +71,11 @@ bool LopDnsClient::validateToken()
     RestClient::Response response = makeRestCall("GET", "/auth/validate");
     if (response.code >= 200 && response.code < 300)
     {
-        if (verbose) {
-            std::cout << "Token validation successful. Response: " << response.body << std::endl;
-        }
+        LOG_DEBUG << "Token validation successful. Response: " << response.body;
         return true;
     }
     else {
-        std::cerr << "Token validation call failed with code: " << response.code << std::endl;
+        LOG_ERROR << "Token validation call failed with code: " << response.code;
     }
 
     return false;
@@ -112,14 +108,12 @@ std::list<std::string> LopDnsClient::getZones()
                 zoneData.at("minimum").get<int>()
             });
         */
-        if (verbose) {
-            std::cout << "Retrieved " << zones.size() << " zones." << std::endl;
-        }   
-        
+        LOG_DEBUG << "Retrieved " << zones.size() << " zones.";
+
         return zones;
     }
     else {
-        std::cerr << "Token validation call failed with code: " << response.code << std::endl;
+        LOG_ERROR << "Token validation call failed with code: " << response.code;
     }
 
     return {};
@@ -135,9 +129,7 @@ std::list<Record> LopDnsClient::getRecords(const std::string& zone_name)
         std::list<Record> records;
         json responseBody = json::parse(response.body);
         if (responseBody.is_array()) {
-            if (verbose) {
-                std::cout << "Retrieved " << responseBody.size() << " records for zone: " << zone_name << std::endl;
-            }
+            LOG_DEBUG << "Retrieved " << responseBody.size() << " records for zone: " << zone_name;
         } else {
             throw std::runtime_error("expected top-level array");
         }
@@ -154,7 +146,7 @@ std::list<Record> LopDnsClient::getRecords(const std::string& zone_name)
         return records;
     }
     else {
-        std::cerr << "Token validation call failed with code: " << response.code << std::endl;
+        LOG_ERROR << "Token validation call failed with code: " << response.code;
     }
     return {};
 }
@@ -183,7 +175,7 @@ Record LopDnsClient::updateRecord(const std::string& zone_name, const std::strin
         return record;
     }
     else {
-        std::cerr << "Token validation call failed with code: " << response.code << std::endl;
+        LOG_ERROR << "Token validation call failed with code: " << response.code;
     }
     return Record{};
 }
@@ -204,9 +196,7 @@ RestClient::Response LopDnsClient::makeRestCall(const std::string& method, const
     RestClient::Response response;
     response.code = -1;
 
-    if (verbose) {
-        std::cout << "[DEBUG] Making " << method << " request to '" << url << "'" << std::endl;
-    }   
+    LOG_DEBUG << "Making " << method << " request to '" << url << "'";
 
     try
     {
@@ -222,11 +212,9 @@ RestClient::Response LopDnsClient::makeRestCall(const std::string& method, const
             conn->AppendHeader("x-token", this->token.token);
         }
 
-        if (verbose) {
-            std::cout << "[DEBUG] " << method << " " << url << std::endl;
-            for (const auto& header : conn->GetHeaders()) {
-                std::cout << "[DEBUG] Call Header: " << header.first << ": " << header.second << std::endl;
-            }
+        LOG_DEBUG << method << " " << url << uri << " Headers:";
+        for (const auto& header : conn->GetHeaders()) {
+            LOG_DEBUG << "Call Header: " << header.first << ": " << header.second;
         }
 
         if (method == "GET") {
@@ -246,11 +234,9 @@ RestClient::Response LopDnsClient::makeRestCall(const std::string& method, const
         throw;
     }
 
-    if (verbose) {
-        std::cout << "[DEBUG] " << method << " " << this->url << uri << " Response Code: " << response.code << " Data: " << response.body << std::endl;
-        for (const auto& header : response.headers) {
-            std::cout << "[DEBUG] Response Header: " << header.first << ": " << header.second << std::endl;
-        }
+    LOG_DEBUG << method << " " << this->url << uri << " Response Code: " << response.code << " Data: " << response.body;
+    for (const auto& header : response.headers) {
+        LOG_DEBUG << "Response Header: " << header.first << ": " << header.second;
     }
         
     delete conn;
