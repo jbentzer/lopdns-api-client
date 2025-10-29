@@ -29,10 +29,24 @@ typedef enum ActionType {
     ACTION_UPDATE_RECORD
 } ActionType;
 
+typedef enum LogLevelType {
+    LOGLEVEL_ERROR,
+    LOGLEVEL_WARNING,
+    LOGLEVEL_INFO,
+    LOGLEVEL_DEBUG
+} LogLevelType;
+
 const std::map<std::string, ActionType> actionMap = {
     {"get-zones", ACTION_GET_ZONES},
     {"get-records", ACTION_GET_RECORDS},
     {"update-record", ACTION_UPDATE_RECORD}
+};
+
+const std::map<std::string, LogLevelType> logLevelMap = {
+    {"error", LOGLEVEL_ERROR},
+    {"warning", LOGLEVEL_WARNING},
+    {"info", LOGLEVEL_INFO},
+    {"debug", LOGLEVEL_DEBUG}
 };
 
 struct Settings
@@ -48,6 +62,7 @@ struct Settings
     std::string current_content;
     std::string new_content;
     bool all_records = false;
+    LogLevelType log_level = LOGLEVEL_INFO;
 };
 
 void trim(std::string& s) {
@@ -61,10 +76,11 @@ void trim(std::string& s) {
 
 int main(int argc, char* argv[])
 {
+  static plog::ColorConsoleAppender<plog::TxtFormatter> consoleAppender;
+  plog::init(plog::info, &consoleAppender);
+  
   try
   {
-    static plog::ColorConsoleAppender<plog::TxtFormatter> consoleAppender;
-    plog::init(plog::error, &consoleAppender);
 
     Settings settings;
 
@@ -85,6 +101,7 @@ int main(int argc, char* argv[])
     args::ValueFlag<std::string> new_content(parser, "new_content", "New content for DNS tasks", {'w', "new-content"}, "");
     args::ValueFlag<std::string> action(parser, "action", "The action to perform", {'a', "action"}, "");
     args::Flag all_records(parser, "all_records", "Flag to indicate that all applicable records should be processed", {'A', "all-records"}, false);
+    args::ValueFlag<std::string> log_level(parser, "log_level", "The logging level (error, warning, info, debug)", {'l', "log-level"}, "info");
 
     try
     {
@@ -92,7 +109,7 @@ int main(int argc, char* argv[])
     }
     catch (args::Help const&)
     {
-        LOG_INFO << parser;
+        std::cout << parser;
         return 0;
     }
     catch (args::ParseError const& e)
@@ -108,6 +125,33 @@ int main(int argc, char* argv[])
         return 1;
     }
 
+    if (log_level) {
+        std::string logLevelStr = args::get(log_level);
+        trim(logLevelStr);
+        auto it = logLevelMap.find(logLevelStr);
+        if (it == logLevelMap.end()) {
+            std::cerr << "Invalid log level specified: " << logLevelStr << ". Valid levels are: error, warning, info, debug.\n";
+            return 1;
+        }
+        settings.log_level = it->second;
+    }
+    switch (settings.log_level) {
+        case LOGLEVEL_ERROR:
+            plog::get()->setMaxSeverity(plog::error);
+            break;
+        case LOGLEVEL_WARNING:
+            plog::get()->setMaxSeverity(plog::warning);
+            break;
+        case LOGLEVEL_INFO:
+            plog::get()->setMaxSeverity(plog::info);
+            break;
+        case LOGLEVEL_DEBUG:
+            plog::get()->setMaxSeverity(plog::debug);
+            break;
+        default:
+            plog::get()->setMaxSeverity(plog::info);
+            break;
+    }
     if (all_records) {
         settings.all_records = args::get(all_records);
     }
