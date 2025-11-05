@@ -13,6 +13,8 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
+    - name: update all submodules
+      run: git submodule update --init --recursive
     - name: install restclient
       run: |
         git clone https://github.com/mrtazz/restclient-cpp.git
