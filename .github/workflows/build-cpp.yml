@@ -38,3 +38,7 @@ jobs:
       run: |
         cd ./cpp/lopdns-api-client
         make
+    - uses: actions/upload-artifact@v4
+      with:
+        name: lopdns-api-client
+        path: cpp/lopdns-api-client/lopdns-api-client
