@@ -7,6 +7,7 @@
 #include <istream>
 #include <ostream>
 #include <string>
+#include <regex>
 #include <map>
 #include <list>
 #include <ctime>
@@ -60,9 +61,11 @@ struct Settings
     std::string record_name;
     std::string record_type = "A";
     std::string current_content;
+    std::string replace_content;
     std::string new_content;
     bool all_records = false;
     LogLevelType log_level = LOGLEVEL_INFO;
+    bool dry_run = false;
 };
 
 void trim(std::string& s) {
@@ -97,11 +100,13 @@ int main(int argc, char* argv[])
     args::ValueFlag<std::string> zone(parser, "zone", "The DNS zone to update", {'z', "zone"}, "");
     args::ValueFlag<std::string> record_type(parser, "record_type", "The type of the DNS record", {'r', "record-type"}, "A");
     args::ValueFlag<std::string> record_name(parser, "record_name", "The name of the DNS record", {'n', "record-name"}, "");
-    args::ValueFlag<std::string> current_content(parser, "current_content", "Current content for DNS tasks", {'u', "current-content"}, "");
-    args::ValueFlag<std::string> new_content(parser, "new_content", "New content for DNS tasks", {'w', "new-content"}, "");
+    args::ValueFlag<std::string> current_content(parser, "current_content", "Current content for DNS tasks (regex search)", {'u', "current-content"}, "");
+    args::ValueFlag<std::string> replace_content(parser, "replace_content", "Content to be replaced by <new_content> (regex replace)", {'x', "replace-content"}, "");
+    args::ValueFlag<std::string> new_content(parser, "new_content", "New content to replace <replace_content>", {'w', "new-content"}, "");
     args::ValueFlag<std::string> action(parser, "action", "The action to perform", {'a', "action"}, "");
     args::Flag all_records(parser, "all_records", "Flag to indicate that all applicable records should be processed", {'A', "all-records"}, false);
     args::ValueFlag<std::string> log_level(parser, "log_level", "The logging level (error, warning, info, debug)", {'l', "log-level"}, "info");
+    args::Flag dry_run(parser, "dry_run", "Flag to indicate that no changes should be made", {'D', "dry-run"}, false);
 
     try
     {
@@ -213,6 +218,11 @@ int main(int argc, char* argv[])
         LOG_ERROR << "Current content is required.";
         return 1;
     }
+    if (replace_content) {
+        std::string replaceContentStr = args::get(replace_content);
+        trim(replaceContentStr);
+        settings.replace_content = replaceContentStr;
+    }
     if (new_content) {
         std::string newContentStr = args::get(new_content);
         trim(newContentStr);
@@ -232,6 +242,9 @@ int main(int argc, char* argv[])
     if (token_duration_sec) {
         settings.token_duration_sec = args::get(token_duration_sec);
     }
+    if (dry_run) {
+        settings.dry_run = args::get(dry_run);
+    }
     LOG_DEBUG << "Settings:";
     LOG_DEBUG << "  Base URL: " << settings.base_url;
     LOG_DEBUG << "  Timeout: " << settings.timeout << " seconds";
@@ -248,8 +261,10 @@ int main(int argc, char* argv[])
     LOG_DEBUG << "  Record Type: " << settings.record_type;
     LOG_DEBUG << "  Record Name: " << settings.record_name;
     LOG_DEBUG << "  Current Content: " << settings.current_content;
+    LOG_DEBUG << "  Replace Content: " << settings.replace_content;
     LOG_DEBUG << "  New Content: " << settings.new_content;
-
+    LOG_DEBUG << "  All Records: " << (settings.all_records ? "true" : "false");
+    LOG_DEBUG << "  Dry Run: " << (settings.dry_run ? "true" : "false");
 
     LopDnsClient client(settings.base_url, settings.timeout);
 
@@ -301,22 +316,40 @@ int main(int argc, char* argv[])
             auto records = client.getRecords(settings.zone);
             bool found = false;
             for (const auto& record : records) {
+                std::cmatch regex_match;
                 if (record.name == settings.record_name && 
                     record.type == settings.record_type && 
                         ((settings.all_records && settings.current_content.empty()) || 
-                        record.content == settings.current_content)) {
-                    if (settings.new_content == record.content) {
+                        std::regex_search(record.content.c_str(), regex_match, std::regex(settings.current_content)))) {
+                    std::string new_content;
+                    if (settings.replace_content.empty()) {
+                        new_content = settings.new_content;
+                    }
+                    else {
+                        new_content = std::regex_replace(record.content, std::regex(settings.replace_content), settings.new_content);
+                    }
+                    if (new_content == record.content) {
                         LOG_INFO << "Record content is already up to date for record: " << record.name << "\n";
                         continue;
                     }
-                    Record updatedRecord = client.updateRecord(settings.zone, settings.record_name,
-                                                                settings.record_type, record.content,
-                                                                settings.new_content);
-                    LOG_INFO << "Updated Record:\n";
+                    
+                    Record updatedRecord;
+
+                    if (settings.dry_run) {
+                        LOG_INFO << "[Dry Run] Would update record:\n";
+                        updatedRecord = record;
+                        updatedRecord.content = new_content;
+                    }
+                    else {
+                        updatedRecord = client.updateRecord(settings.zone, settings.record_name,
+                                                                    settings.record_type, record.content,
+                                                                    settings.new_content);
+                        LOG_INFO << "Updated record:\n";
+                    }
+                    found = true;
                     LOG_INFO << "  Name: " << updatedRecord.name << ", Type: " << updatedRecord.type
                               << ", Content: " << updatedRecord.content << ", TTL: " << updatedRecord.ttl
                               << ", Priority: " << updatedRecord.priority << "\n";
-                    found = true;
                     if (!settings.all_records) {
                         break;
                     }

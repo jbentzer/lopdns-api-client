@@ -82,3 +82,8 @@ Update all records in a zone with the specific name and type:
 ```bash
 ./lopdns-api-client -c "<client-id>" -a update-record -z "<zone>" -r "<record type>" -n "<record name>" -w "<new contents>" --all-records
 ```
+
+Update a record for a specific zone, type, name and regex content by exchanging "API" with "REGEX" in the contents:
+```bash
+./lopdns-api-client -c "<client-id>" -a update-record -z "zone" -r "<record type>" -n "<record name>" -u "<regex to find matching content>" -x "<regex to extract replacement from content>" -w "(sub-)string to write as replacement content"
+```
