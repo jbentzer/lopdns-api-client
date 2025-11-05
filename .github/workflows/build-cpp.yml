@@ -15,7 +15,7 @@ jobs:
     - uses: actions/checkout@v4
     - name: install restclient
       run: |
-        git clone https://github.com:mrtazz/restclient-cpp.git
+        git clone https://github.com/mrtazz/restclient-cpp.git
         sudo sudo apt install libcurl4-openssl-dev -y
         cd restclient-cpp
         ./autogen.sh
@@ -24,12 +24,12 @@ jobs:
         sudo cp /usr/local/lib/librestclient-cpp.so.1 /usr/lib
     - name: install json
       run: |
-        git clone https://github.com:nlohmann/json.git 
+        git clone https://github.com/nlohmann/json.git 
         cd json/include
         sudo cp -r nlohmann /usr/local/include
     - name: install args
       run: |
-        git clone https://github.com:Taywee/args.git
+        git clone https://github.com/Taywee/args.git
         cd args
         sudo make install
     - name: make
