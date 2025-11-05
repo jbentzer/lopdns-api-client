@@ -32,7 +32,7 @@ jobs:
         git clone https://github.com/Taywee/args.git
         cd args
         sudo make install
-    - name: cd build directory
-      run: cd ./cpp/lopdns-api-client
     - name: make
-      run: make
+      run: |
+        cd ./cpp/lopdns-api-client
+        make
