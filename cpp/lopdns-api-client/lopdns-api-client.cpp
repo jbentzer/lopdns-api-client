@@ -183,16 +183,8 @@ bool deleteRecord(LopDnsClient& client, const Settings& settings, const Record& 
     return true;
 }
 
-int main(int argc, char* argv[])
+bool handleArgs(int argc, char* argv[], Settings& settings)
 {
-  static plog::ColorConsoleAppender<plog::TxtFormatter> consoleAppender;
-  plog::init(plog::info, &consoleAppender);
-  
-  try
-  {
-
-    Settings settings;
-
     std::string actionMsg = "The action to perform. Valid actions are: ";
     for (const auto& pair : actionMap) {
         actionMsg += pair.first + ", ";
@@ -223,19 +215,19 @@ int main(int argc, char* argv[])
     catch (args::Help const&)
     {
         std::cout << parser;
-        return 0;
+        exit(0);
     }
     catch (args::ParseError const& e)
     {
         LOG_ERROR << e.what();
         LOG_ERROR << parser;
-        return 1;
+        return false;
     }
     catch (args::ValidationError const& e)
     {
         LOG_ERROR << e.what();
         LOG_ERROR << parser;
-        return 1;
+        return false;
     }
 
     if (log_level) {
@@ -244,7 +236,7 @@ int main(int argc, char* argv[])
         auto it = logLevelMap.find(logLevelStr);
         if (it == logLevelMap.end()) {
             std::cerr << "Invalid log level specified: " << logLevelStr << ". Valid levels are: error, warning, info, debug.\n";
-            return 1;
+            return false;
         }
         settings.log_level = it->second;
     }
@@ -280,11 +272,11 @@ int main(int argc, char* argv[])
             for (const auto& pair : actionMap) {
                 LOG_INFO << "  " << pair.first;
             }
-            return 1;
+            return false;
         }
     } else {
         LOG_ERROR << "Action is required.";
-        return 1;
+        return false;
     }
     if (client_id) {
         std::string clientIdStr = args::get(client_id);
@@ -292,7 +284,7 @@ int main(int argc, char* argv[])
         settings.client_id = clientIdStr;
     } else {
         LOG_ERROR << "Client ID is required.";
-        return 1;
+        return false;
     }
     if (record_type) {
         std::string recordTypeStr = args::get(record_type);
@@ -305,7 +297,7 @@ int main(int argc, char* argv[])
         || settings.action == ACTION_DELETE_RECORD
         ) {
         LOG_ERROR << "Record type is required.";
-        return 1;
+        return false;
     }
     if (zone) {
         std::string zoneStr = args::get(zone);
@@ -319,7 +311,7 @@ int main(int argc, char* argv[])
         || settings.action == ACTION_DELETE_RECORD
     ) {
         LOG_ERROR << "Zone is required.";
-        return 1;
+        return false;
     }
     if (record_name) {
         std::string recordNameStr = args::get(record_name);
@@ -332,7 +324,7 @@ int main(int argc, char* argv[])
         || settings.action == ACTION_DELETE_RECORD
         ) {
         LOG_ERROR << "Record name is required.";
-        return 1;
+        return false;
     }
     if (current_content) {
         std::string oldContentStr = args::get(current_content);
@@ -340,7 +332,7 @@ int main(int argc, char* argv[])
         settings.current_content = oldContentStr;
     } else if (settings.action == ACTION_UPDATE_RECORD && !settings.all_records) {
         LOG_ERROR << "Current content is required.";
-        return 1;
+        return false;
     }
     if (replace_regex) {
         std::string replaceContentStr = args::get(replace_regex);
@@ -353,7 +345,7 @@ int main(int argc, char* argv[])
         settings.content = newContentStr;
     } else if (settings.action == ACTION_UPDATE_RECORD) {
         LOG_ERROR << "New content is required.";
-        return 1;
+        return false;
     }
     if (ttl) {
         settings.ttl = args::get(ttl);
@@ -375,6 +367,11 @@ int main(int argc, char* argv[])
     if (dry_run) {
         settings.dry_run = args::get(dry_run);
     }
+    return true;
+}
+
+void logSettings(const Settings& settings)
+{
     LOG_DEBUG << "Settings:";
     LOG_DEBUG << "  Base URL: " << settings.base_url;
     LOG_DEBUG << "  Timeout: " << settings.timeout << " seconds";
@@ -395,6 +392,22 @@ int main(int argc, char* argv[])
     LOG_DEBUG << "  New Content: " << settings.content;
     LOG_DEBUG << "  All Records: " << (settings.all_records ? "true" : "false");
     LOG_DEBUG << "  Dry Run: " << (settings.dry_run ? "true" : "false");
+}
+
+int main(int argc, char* argv[])
+{
+  static plog::ColorConsoleAppender<plog::TxtFormatter> consoleAppender;
+  plog::init(plog::info, &consoleAppender);
+  
+  try
+  {
+    Settings settings;
+
+    if (!handleArgs(argc, argv, settings)) {
+        return 1;
+    }
+
+    logSettings(settings);
 
     LopDnsClient client(settings.base_url, settings.timeout);
 
