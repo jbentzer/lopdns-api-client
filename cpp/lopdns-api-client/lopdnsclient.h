@@ -45,8 +45,14 @@ public:
     bool validateToken();
     std::list<std::string> getZones();
     std::list<Record> getRecords(const std::string& zone_name);
+    Record createRecord(const std::string& zone_name, const std::string& record_name,
+                                        const std::string& type, const std::string& content,
+                                        int ttl = 3600, int priority = 0);
     Record updateRecord(const std::string& zone_name, const std::string& old_record_name,
-                                       const std::string& matching_type, const std::string& old_content, const std::string& new_content);
+                                       const std::string& matching_type, const std::string& old_content, 
+                                       const std::string& new_content, int ttl = 3600, int priority = 0);
+    bool deleteRecord(const std::string& zone_name, const std::string& record_name,
+                                        const std::string& type, const std::string& content);
 
 private:
     Token token;
