@@ -1,16 +1,25 @@
 {
+    "env": {
+        "projIncludePath": ["${workspaceFolder}/cpp/3rd-party/**"]
+    },
     "configurations": [
         {
             "name": "Mac",
-            "includePath": [
-                "${workspaceFolder}/**"
-            ],
+            "includePath": ["${env:projIncludePath}"],
             "defines": [],
             "compilerPath": "/usr/bin/clang",
             "cStandard": "c17",
             "cppStandard": "c++14",
             "intelliSenseMode": "macos-clang-arm64"
-        }
+        },
+        {
+            "name": "Linux",
+            "includePath": ["${env:projIncludePath}"],
+            "defines": [],
+            "compilerPath": "/usr/bin/gcc",
+            "cStandard": "c17",
+            "cppStandard": "c++14",
+            "intelliSenseMode": "linux-gcc-x64"}
     ],
     "version": 4
 }
