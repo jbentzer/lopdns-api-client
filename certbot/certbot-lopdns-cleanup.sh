@@ -26,6 +26,12 @@ fi
 # Strip only the top domain to get the zone id
 DOMAIN=$(expr match "$CERTBOT_DOMAIN" '.*\.\(.*\..*\)')
 
+# The delete method in the LOPDNS API is not working so we just skip this step for now
+
+echo "No cleanup method implemented, please delete the record manually if needed"
+
+exit 0
+
 lopdns-api-client \
         -c "$CLIENT_ID" \
         -a delete-record \
