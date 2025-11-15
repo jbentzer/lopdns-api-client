@@ -1,10 +1,10 @@
-[submodule "cpp/lopdns-api-client/3rd-party/plog"]
+[submodule "cpp/3rd-party/plog"]
 	path = cpp/3rd-party/plog
 	url = https://github.com/SergiusTheBest/plog.git
-[submodule "cpp/restclient-cpp"]
+[submodule "cpp/3rd-party/restclient-cpp"]
 	path = cpp/3rd-party/restclient-cpp
 	url = https://github.com/mrtazz/restclient-cpp.git
-[submodule "cpp/json"]
+[submodule "cpp/3rd-party/json"]
 	path = cpp/3rd-party/json
 	url = https://github.com/nlohmann/json.git
 [submodule "cpp/3rd-party/args"]
