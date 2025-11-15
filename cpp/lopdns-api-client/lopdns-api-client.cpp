@@ -124,18 +124,21 @@ bool createRecord(LopDnsClient& client, const Settings& settings, Record& outRec
         }
     }
 
-    LOG_INFO << "Created record:" << std::endl;
-    LOG_INFO << "  Name: " << outRecord.name << ", Type: " << outRecord.type
+    std::stringstream logData;
+    logData << "Created record:" << std::endl;
+    logData << "  Name: " << outRecord.name << ", Type: " << outRecord.type
                 << ", Content: " << outRecord.content << ", TTL: " << outRecord.ttl
                 << ", Priority: " << outRecord.priority << std::endl;
+    LOG_INFO << logData.str();
 
     return true;
 }
 
 bool updateRecord(LopDnsClient& client, const Settings& settings, const Record& record, const Record& updateRecord, Record& outRecord)
 {
+    std::stringstream logData;
     if (settings.dry_run) {
-        LOG_INFO << "[Dry Run] Would update record:" << std::endl;
+        logData << "[Dry Run] Would update record:" << std::endl;
         outRecord = record;
         outRecord.content = settings.content;
     }
@@ -150,12 +153,13 @@ bool updateRecord(LopDnsClient& client, const Settings& settings, const Record& 
             return false;
         }
 
-        LOG_INFO << "Updated record:" << std::endl;
+        logData << "Updated record:" << std::endl;
     }
-    LOG_INFO << "Updated record:" << std::endl;
-    LOG_INFO << "  Name: " << outRecord.name << ", Type: " << outRecord.type
+    logData << "  Name: " << outRecord.name << ", Type: " << outRecord.type
                 << ", Content: " << outRecord.content << ", TTL: " << outRecord.ttl
                 << ", Priority: " << outRecord.priority << std::endl;
+
+    LOG_INFO << logData.str();
 
     return true;
 }
@@ -164,9 +168,11 @@ bool updateRecord(LopDnsClient& client, const Settings& settings, const Record& 
 bool deleteRecord(LopDnsClient& client, const Settings& settings, const Record& record)
 {
     if (settings.dry_run) {
-        LOG_INFO << "[Dry Run] Would delete record:" << std::endl;
-        LOG_INFO << "  Name: " << record.name << ", Type: " << record.type
+        std::stringstream logData;
+        logData << "[Dry Run] Would delete record:" << std::endl;
+        logData << "  Name: " << record.name << ", Type: " << record.type
                   << ", Content: " << record.content << std::endl;
+        LOG_INFO << logData.str();
         return true;
     }
     
@@ -176,9 +182,11 @@ bool deleteRecord(LopDnsClient& client, const Settings& settings, const Record& 
         return false;
     }
 
-    LOG_INFO << "Record deleted:" << std::endl;
-    LOG_INFO << "  Name: " << record.name << ", Type: " << record.type
+    std::stringstream logData;
+    logData << "Record deleted:" << std::endl;
+    logData << "  Name: " << record.name << ", Type: " << record.type
                 << ", Content: " << record.content << std::endl;
+    LOG_INFO << logData.str();
 
     return true;
 }
@@ -394,6 +402,15 @@ void logSettings(const Settings& settings)
     LOG_DEBUG << "  Dry Run: " << (settings.dry_run ? "true" : "false");
 }
 
+void exitWithError(const std::string& message, int exitCode = 1, LopDnsClient* client = nullptr)
+{
+    LOG_ERROR << message;
+    if (client != nullptr) {
+        client->invalidateToken();
+    }
+    exit(exitCode);
+}
+
 int main(int argc, char* argv[])
 {
   static plog::ColorConsoleAppender<plog::TxtFormatter> consoleAppender;
@@ -412,22 +429,19 @@ int main(int argc, char* argv[])
     LopDnsClient client(settings.base_url, settings.timeout);
 
     if (!client.authenticate(settings.client_id, settings.token_duration_sec)) {
-        LOG_ERROR << "Authentication failed.";
-        return 1;
+        exitWithError("Authentication failed.");
     }
 
     std::list<std::string> zones = client.getZones();
     if (!settings.zone.empty()) {
         if (std::find(zones.begin(), zones.end(), settings.zone) == zones.end()) {
-            LOG_ERROR << "Specified zone not found: " << settings.zone;
-            return 1;
+            exitWithError("Specified zone not found: " + settings.zone, 2, &client);
         }
         zones = {settings.zone};
     }
     else {
         if (zones.empty()) {
-            LOG_ERROR << "No zones available to retrieve records from.";
-            return 1;
+            exitWithError("No zones available to retrieve records from.", 3, &client);
         }
     }
 
@@ -458,7 +472,7 @@ int main(int argc, char* argv[])
         {
             Record newRecord;
             if (!createRecord(client, settings, newRecord)) {
-                return 1;
+                exitWithError("Failed to create record.", 4, &client);
             }
             break;
         }
@@ -489,7 +503,7 @@ int main(int argc, char* argv[])
                 {
                     updated = true;
                 } else {
-                    return 1;
+                    exitWithError("Failed to update record.", 5, &client);
                 }   
 
                 if (!settings.all_records) {
@@ -500,13 +514,13 @@ int main(int argc, char* argv[])
                 if (settings.action == ACTION_UPDATE_RECORD) {
                     LOG_INFO << "No records updated for name: " << settings.record_name
                           << " and type: " << settings.record_type << "\n";
-                    return 1;
+                    exitWithError("No records updated for name: " + settings.record_name + " and type: " + settings.record_type, 6, &client);
                 }
                 else if (settings.action == ACTION_CREATE_OR_UPDATE_RECORD) {
                     LOG_INFO << "No matching records found. Creating new record." << std::endl;
                     Record newRecord;
                     if (!createRecord(client, settings, newRecord)) {
-                        return 1;
+                        exitWithError("Failed to create record.", 4, &client);
                     }
                 }
             }
@@ -517,11 +531,11 @@ int main(int argc, char* argv[])
             auto records = getRecords(client, settings);
             if (records.empty()) {
                 LOG_INFO << "No matching records found to delete." << std::endl;
-                return 1;
+                exitWithError("No matching records found to delete.", 7, &client);
             }
             for (const auto& record : records) {
                 if (!deleteRecord(client, settings, record)) {
-                    return 1;
+                    exitWithError("Failed to delete record.", 8, &client);
                 }
                 if (!settings.all_records) {
                     if (records.size() > 1) {
@@ -534,12 +548,12 @@ int main(int argc, char* argv[])
         }
         default:
             LOG_ERROR << "Unknown action.";
-            return 1;
+            exitWithError("Unknown action.", 9, &client);
     }
   }
   catch (std::exception& e)
   {
-    LOG_ERROR << "Exception: " << e.what();
+    exitWithError("Unhandled exception occurred: " + std::string(e.what()), 99);
   }
 
   return 0;

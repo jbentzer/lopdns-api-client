@@ -81,6 +81,27 @@ bool LopDnsClient::validateToken()
     return false;
 }
 
+bool LopDnsClient::invalidateToken()
+{
+    if (this->isTokenExpired())
+    {
+        return true;
+    }
+
+    // Implementation for invalidating the token
+    RestClient::Response response = makeRestCall("GET", "/auth/invalidate");
+    if (response.code >= 200 && response.code < 300)
+    {
+        LOG_DEBUG << "Token invalidation successful. Response: " << response.body;
+        return true;
+    }
+    else {
+        LOG_ERROR << "Token invalidation call failed with code: " << response.code;
+    }
+
+    return false;
+}
+
 std::list<std::string> LopDnsClient::getZones()
 {
     // Implementation for getting the list of zones
@@ -251,7 +272,18 @@ RestClient::Response LopDnsClient::makeRestCall(const std::string& method, const
     RestClient::Response response;
     response.code = -1;
 
-    LOG_DEBUG << "Making " << method << " request to '" << url << "'";
+    std::stringstream logData;
+
+    logData << "Making " << method << " request to '" << url << "':";
+    logData << "\n\tURI: " << uri;
+    logData << "\n\tHeaders:";
+    for (const auto& header : headers) {
+        logData << "\n\t\t" << header.first << ": " << header.second;
+    }
+    if (!body.empty()) {
+        logData << "\n\tBody: " << body;
+    }
+    LOG_DEBUG << logData.str();
 
     try
     {
@@ -263,13 +295,9 @@ RestClient::Response LopDnsClient::makeRestCall(const std::string& method, const
         conn->SetHeaders(headers);
         conn->AppendHeader("Content-Type", "application/json");
         conn->AppendHeader("Accept", "application/json");
+        conn->AppendHeader("Content-Length", std::to_string(body.length()));
         if (applyAuthHeaders) {
             conn->AppendHeader("x-token", this->token.token);
-        }
-
-        LOG_DEBUG << method << " " << url << uri << " Headers:";
-        for (const auto& header : conn->GetHeaders()) {
-            LOG_DEBUG << "Call Header: " << header.first << ": " << header.second;
         }
 
         if (method == "GET") {
@@ -289,11 +317,25 @@ RestClient::Response LopDnsClient::makeRestCall(const std::string& method, const
         throw;
     }
 
-    LOG_DEBUG << method << " " << this->url << uri << " Response Code: " << response.code << " Data: " << response.body;
-    for (const auto& header : response.headers) {
-        LOG_DEBUG << "Response Header: " << header.first << ": " << header.second;
+    bool errorOccurred = response.code >= 400;
+    logData.str("");
+    logData.clear();
+
+    if (errorOccurred) {
+        logData << method << " " << this->url << uri << " failed with Response Code: " << response.code << " Data: " << response.body;
+    } else {
+        logData << method << " " << this->url << uri << " Response Code: " << response.code << " Data: " << response.body;
     }
-        
+    for (const auto& header : response.headers) {
+        logData << "\n\t" << "Response Header: " << header.first << ": " << header.second;
+    }
+
+    if (errorOccurred) {
+        LOG_ERROR << logData.str();
+    } else {
+        LOG_DEBUG << logData.str();
+    }
+
     delete conn;
 
     return response;

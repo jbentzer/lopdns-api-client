@@ -41,8 +41,9 @@ public:
 
     // Methods for interacting with the API
     bool authenticate(const std::string& client_id, const int durationInSeconds);
-    bool isTokenExpired(const int minTimeLeftInSeconds = 30);
+    bool isTokenExpired(const int minTimeLeftInSeconds = 0);
     bool validateToken();
+    bool invalidateToken();
     std::list<std::string> getZones();
     std::list<Record> getRecords(const std::string& zone_name);
     Record createRecord(const std::string& zone_name, const std::string& record_name,

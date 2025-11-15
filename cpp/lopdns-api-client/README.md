@@ -76,6 +76,12 @@ Get all records for a specific zone:
 ./lopdns-api-client -c "<client-id>" -a get-records -z "<zone>"
 ```
 
+Create a record in a specific zone:
+
+```bash
+./lopdns-api-client -c "<client-id>" -a create-record -z "<zone>" -n "<record name>" -t "<type>" -T "<ttl>" -p "<priority>" -w "<content>
+```
+
 Update a record for a specific zone, type, name and content:
 
 ```bash
