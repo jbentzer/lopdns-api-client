@@ -15,8 +15,6 @@
 #include <optional>
 #include <sstream>
 #include "args.hxx"
-#include "restclient-cpp/connection.h"
-#include "restclient-cpp/restclient.h"
 #include "plog/Log.h"
 #include "plog/Init.h"
 #include "plog/Formatters/TxtFormatter.h"
