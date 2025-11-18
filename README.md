@@ -22,6 +22,9 @@ The C++ client is a minimalistic application that can:
 - Read all records
 - Update a single record based on zone, record type, record name and current contents.
 - Update all records based on zone, record type and record name.
+- Create a record.
+- Create or update a record, depending on the existence of the record.
+- Delete a record (*** Currently not working in API, returns 500 ***)
 
 ## API Comments
 
