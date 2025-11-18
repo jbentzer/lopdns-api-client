@@ -10,22 +10,6 @@ Restore all submodules with:
 git submodule update --init --recursive
 ```
 
-#### restclient-cpp
-
-Might require curl dev to be installed:
-
-```bash
-sudo apt install libcurl4-openssl-dev -y
-```
-
-```bash
-cd ./cpp/3rd-party/restclient-cpp
-./autogen.sh
-./configure 
-sudo make install
-sudo cp /usr/local/lib/librestclient-cpp.so.1 /usr/lib
-```
-
 #### Not required
 
 ##### json
