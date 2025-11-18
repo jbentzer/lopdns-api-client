@@ -12,6 +12,8 @@
 #include <list>
 #include <ctime>
 #include <exception>
+#include <optional>
+#include <sstream>
 #include "args.hxx"
 #include "restclient-cpp/connection.h"
 #include "restclient-cpp/restclient.h"
@@ -23,6 +25,9 @@
 
 
 const std::string URL = "https://api.lopdns.se/v2";
+
+constexpr int defaultDnsRecordTtl = 3600;
+constexpr int defaultDnsRecordPriority = 0;
 
 typedef enum ActionType {
     ACTION_GET_ZONES,
@@ -64,12 +69,17 @@ struct Settings
     ActionType action = ACTION_GET_ZONES;
     std::string zone;
     std::string record_name;
-    std::string record_type = "A";
-    std::string current_content;
-    std::string replace_regex;
-    std::string content;
-    int ttl = 3600;
-    int priority = 0;
+    std::string record_type;
+    std::string current_record_content;
+    std::string replace_record_content_regex;
+    
+    // New content for create or update
+    std::optional<std::string> new_record_content;
+    std::optional<std::string> new_record_name;
+    std::optional<std::string> new_record_type;
+    std::optional<int> new_record_ttl;
+    std::optional<int> new_record_priority;
+
     bool all_records = false;
     LogLevelType log_level = LOGLEVEL_INFO;
     bool dry_run = false;
@@ -93,8 +103,8 @@ std::list<Record> getRecords(LopDnsClient& client, const Settings& settings)
         std::cmatch regex_match;
         if (record.name == settings.record_name && 
             record.type == settings.record_type && 
-                ((settings.all_records && settings.current_content.empty()) || 
-                std::regex_search(record.content.c_str(), regex_match, std::regex(settings.current_content)))) {
+                ((settings.all_records && settings.current_record_content.empty()) || 
+                std::regex_search(record.content.c_str(), regex_match, std::regex(settings.current_record_content)))) {
             matchedRecords.push_back(record);
         }
     }
@@ -104,20 +114,42 @@ std::list<Record> getRecords(LopDnsClient& client, const Settings& settings)
 
 bool createRecord(LopDnsClient& client, const Settings& settings, Record& outRecord)
 {
+    std::string contentValue;
+    std::string nameValue;
+    std::string typeValue;
+    if (settings.new_record_content.has_value())
+        contentValue = settings.new_record_content.value();
+    else {
+        contentValue = settings.current_record_content;
+    }
+    if (settings.new_record_name.has_value()) {
+        nameValue = settings.new_record_name.value();
+    }
+    else {
+        nameValue = settings.record_name;
+    }
+    if (settings.new_record_type.has_value()) {
+        typeValue = settings.new_record_type.value();
+    }
+    else {
+        typeValue = settings.record_type;
+    }
+    int ttlValue = settings.new_record_ttl.value_or(defaultDnsRecordTtl);
+    int priorityValue = settings.new_record_priority.value_or(defaultDnsRecordPriority);
     if (settings.dry_run) {
         LOG_INFO << "[Dry Run] Would create record:" << std::endl;
-        outRecord.name = settings.record_name;
-        outRecord.type = settings.record_type;
-        outRecord.content = settings.content;
-        outRecord.ttl = settings.ttl;
-        outRecord.priority = settings.priority;
+        outRecord.name = nameValue;
+        outRecord.type = typeValue;
+        outRecord.content = contentValue;
+        outRecord.ttl = ttlValue;
+        outRecord.priority = priorityValue;
     }
     else {
         outRecord = client.createRecord(settings.zone, settings.record_name,
                                                 settings.record_type,
-                                                settings.content,
-                                                settings.ttl,
-                                                settings.priority);
+                                                contentValue,
+                                                ttlValue,
+                                                priorityValue);
         if (outRecord.name.empty()) {
             LOG_ERROR << "Failed to create record.";
             return false;
@@ -134,20 +166,40 @@ bool createRecord(LopDnsClient& client, const Settings& settings, Record& outRec
     return true;
 }
 
-bool updateRecord(LopDnsClient& client, const Settings& settings, const Record& record, const Record& updateRecord, Record& outRecord)
+bool updateRecord(LopDnsClient& client, const Settings& settings, const Record& record, 
+    const std::optional<std::string>& new_record_content, Record& outRecord)
 {
     std::stringstream logData;
     if (settings.dry_run) {
-        logData << "[Dry Run] Would update record:" << std::endl;
         outRecord = record;
-        outRecord.content = settings.content;
+        logData << "[Dry Run] Would update record:" << std::endl;
+        if (new_record_content.has_value()) {
+            outRecord.content = new_record_content.value();
+        }
+        if (settings.new_record_name.has_value()) {
+            outRecord.name = settings.new_record_name.value();
+        }
+        if (settings.new_record_type.has_value()) {
+            outRecord.type = settings.new_record_type.value();
+        }
+        if (settings.new_record_ttl.has_value()) {
+            outRecord.ttl = settings.new_record_ttl.value();
+        }
+        if (settings.new_record_priority.has_value()) {
+            outRecord.priority = settings.new_record_priority.value();
+        }
     }
     else {
-        outRecord = client.updateRecord(settings.zone, record.name,
-                                                    record.type, record.content,
-                                                    updateRecord.content,
-                                                    settings.ttl,
-                                                    settings.priority);
+        outRecord = client.updateRecord(
+            settings.zone,
+            record.name,
+            record.type,
+            record.content,
+            settings.new_record_name,
+            settings.new_record_type,
+            new_record_content,
+            settings.new_record_ttl,
+            settings.new_record_priority);
         if (outRecord.name.empty()) {
             LOG_ERROR << "Failed to update record.";
             return false;
@@ -155,9 +207,22 @@ bool updateRecord(LopDnsClient& client, const Settings& settings, const Record& 
 
         logData << "Updated record:" << std::endl;
     }
-    logData << "  Name: " << outRecord.name << ", Type: " << outRecord.type
-                << ", Content: " << outRecord.content << ", TTL: " << outRecord.ttl
-                << ", Priority: " << outRecord.priority << std::endl;
+    logData << "Changed record data:" << std::endl;
+    if (settings.new_record_name.has_value()) {
+        logData << "  Name: " << outRecord.name << " (was '" << record.name << "')" << std::endl;
+    }
+    if (settings.new_record_type.has_value()) {
+        logData << "  Type: " << outRecord.type << " (was '" << record.type << "')" << std::endl;
+    }
+    if (new_record_content.has_value()) {
+        logData << "  Content: " << outRecord.content << " (was '" << record.content << "')" << std::endl;
+    }
+    if (settings.new_record_ttl.has_value()) {
+        logData << "  TTL: " << outRecord.ttl << " (was '" << record.ttl << "')" << std::endl;
+    }
+    if (settings.new_record_priority.has_value()) {
+        logData << "  Priority: " << outRecord.priority << " (was '" << record.priority << "')" << std::endl;
+    }
 
     LOG_INFO << logData.str();
 
@@ -206,11 +271,13 @@ bool handleArgs(int argc, char* argv[], Settings& settings)
     args::ValueFlag<std::string> zone(parser, "zone", "The DNS zone to update", {'z', "zone"}, "");
     args::ValueFlag<std::string> record_type(parser, "record_type", "The type of the DNS record", {'r', "record-type"}, "A");
     args::ValueFlag<std::string> record_name(parser, "record_name", "The name of the DNS record", {'n', "record-name"}, "");
-    args::ValueFlag<std::string> current_content(parser, "current_content", "Current content for DNS tasks (regex search)", {'u', "current-content"}, "");
-    args::ValueFlag<std::string> replace_regex(parser, "replace_regex", "Regular expression to be used in updates (regex replace)", {'x', "replace-regex"}, "");
-    args::ValueFlag<std::string> content(parser, "content", "Content, new or to be updated (regex replace)", {'w', "content"}, "");
-    args::ValueFlag<int> ttl(parser, "ttl", "The TTL for the DNS record", {'T', "ttl"}, 3600);
-    args::ValueFlag<int> priority(parser, "priority", "The priority for the DNS record", {'p', "priority"}, 0);
+    args::ValueFlag<std::string> current_record_content(parser, "current_record_content", "Current record content for DNS tasks (regex search)", {'u', "current-record-content"}, "");
+    args::ValueFlag<std::string> replace_record_content_regex(parser, "replace_record_content_regex", "Regular expression to be used in updates (regex replace)", {'x', "replace-record-content-regex"}, "");
+    args::ValueFlag<std::string> new_record_content(parser, "new_record_content", "New content for DNS records", {'w', "new-record-content"}, "");
+    args::ValueFlag<std::string> new_record_type(parser, "new_record_type", "The type of the DNS record", {'R', "new-record-type"}, "");
+    args::ValueFlag<std::string> new_record_name(parser, "new_record_name", "New record name to be updated with", {'N', "new-record-name"}, "");
+    args::ValueFlag<int> new_record_ttl(parser, "new_record_ttl", "The new TTL for the DNS record", {'T', "new-record-ttl"}, 0);
+    args::ValueFlag<int> new_record_priority(parser, "new_record_priority", "The new priority for the DNS record", {'p', "new-record-priority"}, 0);
     args::ValueFlag<std::string> action(parser, "action", "The action to perform", {'a', "action"}, "");
     args::Flag all_records(parser, "all_records", "Flag to indicate that all applicable records should be processed", {'A', "all-records"}, false);
     args::ValueFlag<std::string> log_level(parser, "log_level", "The logging level (error, warning, info, debug)", {'l', "log-level"}, "info");
@@ -334,32 +401,32 @@ bool handleArgs(int argc, char* argv[], Settings& settings)
         LOG_ERROR << "Record name is required.";
         return false;
     }
-    if (current_content) {
-        std::string oldContentStr = args::get(current_content);
+    if (current_record_content) {
+        std::string oldContentStr = args::get(current_record_content);
         trim(oldContentStr);
-        settings.current_content = oldContentStr;
+        settings.current_record_content = oldContentStr;
     } else if (settings.action == ACTION_UPDATE_RECORD && !settings.all_records) {
         LOG_ERROR << "Current content is required.";
         return false;
     }
-    if (replace_regex) {
-        std::string replaceContentStr = args::get(replace_regex);
+    if (replace_record_content_regex) {
+        std::string replaceContentStr = args::get(replace_record_content_regex);
         trim(replaceContentStr);
-        settings.replace_regex = replaceContentStr;
+        settings.replace_record_content_regex = replaceContentStr;
     }
-    if (content) {
-        std::string newContentStr = args::get(content);
+    if (new_record_content) {
+        std::string newContentStr = args::get(new_record_content);
         trim(newContentStr);
-        settings.content = newContentStr;
+        settings.new_record_content = newContentStr;
     } else if (settings.action == ACTION_UPDATE_RECORD) {
         LOG_ERROR << "New content is required.";
         return false;
     }
-    if (ttl) {
-        settings.ttl = args::get(ttl);
+    if (new_record_ttl) {
+        settings.new_record_ttl = args::get(new_record_ttl);
     }
-    if (priority) {
-        settings.priority = args::get(priority);
+    if (new_record_priority) {
+        settings.new_record_priority = args::get(new_record_priority);
     }
     if (base_url) {
         std::string baseUrlStr = args::get(base_url);
@@ -395,10 +462,33 @@ void logSettings(const Settings& settings)
     LOG_DEBUG << "  Zone: " << settings.zone;
     LOG_DEBUG << "  Record Type: " << settings.record_type;
     LOG_DEBUG << "  Record Name: " << settings.record_name;
-    LOG_DEBUG << "  Current Content: " << settings.current_content;
-    LOG_DEBUG << "  Replace Content: " << settings.replace_regex;
-    LOG_DEBUG << "  New Content: " << settings.content;
+    LOG_DEBUG << "  Current Content: " << settings.current_record_content;
+    LOG_DEBUG << "  Replace Content: " << settings.replace_record_content_regex;
+    if (settings.new_record_content.has_value()) {
+        LOG_DEBUG << "  New Content: " << settings.new_record_content.value();
+    } else {
+        LOG_DEBUG << "  New Content: (not set)";
+    }
+    if (settings.new_record_ttl.has_value()) {
+        LOG_DEBUG << "  TTL: " << settings.new_record_ttl.value();
+    } else {
+        LOG_DEBUG << "  TTL: (not set)";
+    }
+    if (settings.new_record_priority.has_value()) {
+        LOG_DEBUG << "  Priority: " << settings.new_record_priority.value();
+    } else {
+        LOG_DEBUG << "  Priority: (not set)";
+    }
     LOG_DEBUG << "  All Records: " << (settings.all_records ? "true" : "false");
+    std::stringstream ll; 
+    ll << "  Log Level: ";
+    for (const auto& pair : logLevelMap) {
+        if (pair.second == settings.log_level) {
+            ll << pair.first;
+            break;
+        }
+    }
+    LOG_DEBUG << ll.str();
     LOG_DEBUG << "  Dry Run: " << (settings.dry_run ? "true" : "false");
 }
 
@@ -482,24 +572,18 @@ int main(int argc, char* argv[])
             auto records = getRecords(client, settings);
             bool updated = false;
             for (const auto& record : records) {
-                std::string new_content;
-                if (settings.replace_regex.empty()) {
-                    new_content = settings.content;
+                std::optional<std::string> new_content;
+                if (settings.replace_record_content_regex.empty()) {
+                    if (settings.new_record_content.has_value()) {
+                        new_content = settings.new_record_content;
+                    }
                 }
-                else {
-                    new_content = std::regex_replace(record.content, std::regex(settings.replace_regex), settings.content);
+                else if (settings.new_record_content.has_value()) {
+                    new_content = std::regex_replace(record.content, std::regex(settings.replace_record_content_regex), settings.new_record_content.value());
                 }
-                if (new_content == record.content) {
-                    LOG_INFO << "Record content is already up to date for record: " << record.name << "\n";
-                    continue;
-                }
-                Record modifiedRecord = record;
-                modifiedRecord.content = new_content;
-                modifiedRecord.ttl = settings.ttl;
-                modifiedRecord.priority = settings.priority;
                 
                 Record updatedRecord;
-                if (updateRecord(client, settings, record, modifiedRecord, updatedRecord))
+                if (updateRecord(client, settings, record, new_content, updatedRecord))
                 {
                     updated = true;
                 } else {

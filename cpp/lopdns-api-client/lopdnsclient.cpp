@@ -8,6 +8,8 @@
 
 using json = nlohmann::json;
 
+const std::string USER_AGENT = "lopdns-api-client/1.0";
+
 LopDnsClient::LopDnsClient(const std::string& url, int timeoutInSeconds)
 {
     RestClient::init();
@@ -44,7 +46,7 @@ bool LopDnsClient::authenticate(const std::string& client_id, const int duration
         return true;
     }
     else {
-        LOG_ERROR << "Authentication call failed with code: " << response.code;
+        LOG_ERROR << "Authentication call failed with code: " << response.code << " body: " << response.body;
     }
     return false;
 }
@@ -75,7 +77,7 @@ bool LopDnsClient::validateToken()
         return true;
     }
     else {
-        LOG_ERROR << "Token validation call failed with code: " << response.code;
+        LOG_ERROR << "Token validation call failed with code: " << response.code << " body: " << response.body;
     }
 
     return false;
@@ -134,7 +136,7 @@ std::list<std::string> LopDnsClient::getZones()
         return zones;
     }
     else {
-        LOG_ERROR << "Token validation call failed with code: " << response.code;
+        LOG_ERROR << "Token validation call failed with code: " << response.code << " body: " << response.body;
     }
 
     return {};
@@ -167,7 +169,7 @@ std::list<Record> LopDnsClient::getRecords(const std::string& zone_name)
         return records;
     }
     else {
-        LOG_ERROR << "Token validation call failed with code: " << response.code;
+        LOG_ERROR << "Token validation call failed with code: " << response.code << " body: " << response.body;
     }
     return {};
 }
@@ -204,16 +206,31 @@ Record LopDnsClient::createRecord(const std::string& zone_name, const std::strin
 
 Record LopDnsClient::updateRecord(const std::string& zone_name, const std::string& old_record_name,
                                    const std::string& matching_type, const std::string& old_content, 
-                                   const std::string& new_content, int ttl, int priority)
+                                   const std::optional<std::string>& new_record_name, const std::optional<std::string>& new_type,
+                                   const std::optional<std::string>& new_content, const std::optional<int>& new_ttl, 
+                                   const std::optional<int>& new_priority)
 {
     // Implementation for updating a DNS record
     json bodyJson;
     bodyJson["oldName"] = old_record_name;
     bodyJson["matchingType"] = matching_type;
     bodyJson["oldValue"] = old_content;
-    bodyJson["newValue"] = new_content;
-    bodyJson["ttl"] = ttl;
-    bodyJson["priority"] = priority;
+    
+    if (new_record_name.has_value()) {
+        bodyJson["newName"] = new_record_name.value();
+    }
+    if (new_type.has_value()) {
+        bodyJson["newType"] = new_type.value();
+    }
+    if (new_content.has_value()) {
+        bodyJson["newValue"] = new_content.value();
+    }
+    if (new_ttl.has_value()) {
+        bodyJson["newTtl"] = new_ttl.value();
+    }
+    if (new_priority.has_value()) {
+        bodyJson["newPriority"] = new_priority.value();
+    }
     
     RestClient::Response response = makeRestCall("PUT", "/records/" + zone_name, true, RestClient::HeaderFields(), std::map<std::string, std::string>(), bodyJson.dump());
     if (response.code >= 200 && response.code < 300)
@@ -229,7 +246,7 @@ Record LopDnsClient::updateRecord(const std::string& zone_name, const std::strin
         return record;
     }
     else {
-        LOG_ERROR << "Token validation call failed with code: " << response.code;
+        LOG_ERROR << "Token validation call failed with code: " << response.code << " body: " << response.body;
     }
     return Record{};
 }
@@ -250,7 +267,7 @@ bool LopDnsClient::deleteRecord(const std::string& zone_name, const std::string&
         return true;
     }
     else {
-        LOG_ERROR << "Deleting record call failed with code: " << response.code;
+        LOG_ERROR << "Deleting record call failed with code: " << response.code << " body: " << response.body;
     }
 
     return false;
@@ -276,9 +293,21 @@ RestClient::Response LopDnsClient::makeRestCall(const std::string& method, const
 
     logData << "Making " << method << " request to '" << url << "':";
     logData << "\n\tURI: " << uri;
-    logData << "\n\tHeaders:";
-    for (const auto& header : headers) {
-        logData << "\n\t\t" << header.first << ": " << header.second;
+    if (!queryParams.empty()) {
+        logData << "\n\tQuery Parameters:";
+        for (const auto& param : queryParams) {
+            logData << "\n\t\t" << param.first << ": " << param.second;
+        }
+    }
+    if (applyAuthHeaders) {
+        logData << "\n\tHeaders (auth):";
+        logData << "\n\t\tx-token: " << this->token.token;
+    }
+    if (headers.size() > 0) {
+        logData << "\n\tHeaders (additional):";
+        for (const auto& header : headers) {
+            logData << "\n\t\t" << header.first << ": " << header.second;
+        }
     }
     if (!body.empty()) {
         logData << "\n\tBody: " << body;
@@ -290,7 +319,7 @@ RestClient::Response LopDnsClient::makeRestCall(const std::string& method, const
         conn->SetTimeout(this->timeout);
         conn->FollowRedirects(true);
 
-        conn->SetUserAgent("LopDnsClientCpp/1.0");
+        conn->SetUserAgent(USER_AGENT.c_str());
         
         conn->SetHeaders(headers);
         conn->AppendHeader("Content-Type", "application/json");
@@ -317,26 +346,24 @@ RestClient::Response LopDnsClient::makeRestCall(const std::string& method, const
         throw;
     }
 
-    bool errorOccurred = response.code >= 400;
-    logData.str("");
-    logData.clear();
-
-    if (errorOccurred) {
-        logData << method << " " << this->url << uri << " failed with Response Code: " << response.code << " Data: " << response.body;
-    } else {
-        logData << method << " " << this->url << uri << " Response Code: " << response.code << " Data: " << response.body;
-    }
-    for (const auto& header : response.headers) {
-        logData << "\n\t" << "Response Header: " << header.first << ": " << header.second;
-    }
-
-    if (errorOccurred) {
-        LOG_ERROR << logData.str();
-    } else {
-        LOG_DEBUG << logData.str();
-    }
+    logResponse(uri, method, response);
 
     delete conn;
 
     return response;
+}
+
+void LopDnsClient::logResponse(const std::string& uri, const std::string& method, const RestClient::Response& response)
+{
+    std::stringstream logData;
+    logData << "Response Code: " << response.code << "\n";
+    logData << "Response Body: " << response.body << "\n";
+    for (const auto& header : response.headers) {
+        logData << "Response Header: " << header.first << ": " << header.second << "\n";
+    }
+    if (response.code >= 400) {
+        LOG_ERROR << logData.str();
+    } else {
+        LOG_DEBUG << logData.str();
+    }
 }
