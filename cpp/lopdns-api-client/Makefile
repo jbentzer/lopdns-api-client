@@ -3,7 +3,7 @@
 # Compiler and flags
 CC = g++
 CFLAGS = -Wall -O2 -std=c++17 
-INC = -I/usr/local/include -I./3rd-party/plog/include
+INC = -I../3rd-party/plog/include -I../3rd-party/args/include -I../3rd-party/restclient-cpp/include -I../3rd-party/json/include
 LIB = -L/usr/local/lib
 LIBS += -lrestclient-cpp
 

@@ -4,6 +4,12 @@
 
 ### Dependencies
 
+Restore all submodules with: 
+
+```bash
+git submodule update --init --recursive
+```
+
 #### restclient-cpp
 
 Might require curl dev to be installed:
@@ -13,27 +19,25 @@ sudo apt install libcurl4-openssl-dev -y
 ```
 
 ```bash
-git clone git@github.com:mrtazz/restclient-cpp.git
-sudo apt-get install libcurl4-openssl-dev
-cd restclient-cpp
+cd ./cpp/3rd-party/restclient-cpp
 ./autogen.sh
 ./configure 
 sudo make install
 sudo cp /usr/local/lib/librestclient-cpp.so.1 /usr/lib
 ```
 
-#### json
+#### Not required
+
+##### json
 
 ```bash
-git clone git@github.com:nlohmann/json.git 
-cd json/include
+cd ./cpp/3rd-party/json/include
 sudo cp -r nlohmann /usr/local/include
 ```
 
-#### args
+##### args
 
 ```bash
-git clone git@github.com:Taywee/args.git
 cd args
 sudo make install
 ```
@@ -70,6 +74,12 @@ Get all records for a specific zone:
 
 ```bash
 ./lopdns-api-client -c "<client-id>" -a get-records -z "<zone>"
+```
+
+Create a record in a specific zone:
+
+```bash
+./lopdns-api-client -c "<client-id>" -a create-record -z "<zone>" -n "<record name>" -t "<type>" -T "<ttl>" -p "<priority>" -w "<content>
 ```
 
 Update a record for a specific zone, type, name and content:

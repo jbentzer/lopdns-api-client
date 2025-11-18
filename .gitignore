@@ -231,3 +231,4 @@ __marimo__/
 *.rar
 *.gz
 *.bz2
+.github/copilot-instructions.md
