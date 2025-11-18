@@ -4,8 +4,9 @@
 #include <string>
 #include <list>
 #include <optional>
-#include "restclient-cpp/connection.h"
-#include "restclient-cpp/restclient.h"
+#include <map>
+#define CPPHTTPLIB_OPENSSL_SUPPORT
+#include "httplib.h"
 
 typedef struct Zone
 {
@@ -33,6 +34,15 @@ typedef struct Token
     long long epochExpires;
     std::string tzone;
 } Token;
+
+typedef struct Response
+{
+    int code;
+    std::string body;
+} Response;
+
+typedef std::map<std::string, std::string> Headers;
+typedef std::map<std::string, std::string> QueryParams;
 
 class LopDnsClient
 {
@@ -71,11 +81,11 @@ private:
     Token token;
     std::string url;
     int timeout;
-    RestClient::Response makeRestCall(const std::string& method, const std::string& endpoint, bool applyAuthHeaders = true,
-                      const RestClient::HeaderFields& headers = RestClient::HeaderFields(),
-                      const std::map<std::string, std::string>& queryParams = std::map<std::string, std::string>(),
+    Response makeRestCall(const std::string& method, const std::string& endpoint, bool applyAuthHeaders = true,
+                      const Headers& headers = Headers(),
+                      const QueryParams& queryParams = QueryParams(),
                       const std::string& body = "");
-    void logResponse(const std::string& uri, const std::string& method, const RestClient::Response& response);
+    void logResponse(const std::string& uri, const std::string& method, const httplib::Result& response);
 };
 
 #endif // LOPDNSCLIENT_H

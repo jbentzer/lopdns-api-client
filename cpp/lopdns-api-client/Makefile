@@ -2,11 +2,10 @@
 
 # Compiler and flags
 CC = g++
-CFLAGS = -Wall -O2 -std=c++17 
-INC = -I../3rd-party/plog/include -I../3rd-party/args/include -I../3rd-party/restclient-cpp/include -I../3rd-party/json/include
+CFLAGS = -Wall -O2 -std=c++17
+INC = -I../3rd-party/plog/include -I../3rd-party/args -I../3rd-party/cpp-httplib -I../3rd-party/json/include
 LIB = -L/usr/local/lib
-LIBS += -lrestclient-cpp
-
+LIBS += -lssl -lcrypto
 
 # Source and output
 SRC = lopdns-api-client.cpp lopdnsclient.cpp

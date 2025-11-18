@@ -1,6 +1,4 @@
-#include <nlohmann/json.hpp>
-#include <restclient-cpp/connection.h>
-#include <restclient-cpp/restclient.h>
+#include "nlohmann/json.hpp"
 #include "plog/Log.h"
 
 #include "lopdnsclient.h"
@@ -9,30 +7,30 @@
 using json = nlohmann::json;
 
 const std::string USER_AGENT = "lopdns-api-client/1.0";
+const std::string ENCODING = "application/json";
+const std::string API_VERSION = "v2";
 
 LopDnsClient::LopDnsClient(const std::string& url, int timeoutInSeconds)
 {
-    RestClient::init();
-
     this->url = url;
     this->timeout = timeoutInSeconds;
 }
 
 LopDnsClient::~LopDnsClient()
 {
-    // Destructor implementation (if needed)
+    // Cleanup if necessary
 }
 
 bool LopDnsClient::authenticate(const std::string& client_id, const int durationInSeconds)
 {
     // Implementation for authenticating the client
-    RestClient::HeaderFields headers;
+    Headers headers;
     headers["x-clientid"] = client_id;
 
-    std::map<std::string, std::string> queryParams;
+    QueryParams queryParams;
     queryParams["duration"] = std::to_string(durationInSeconds);
 
-    RestClient::Response response = makeRestCall("GET", "/auth/token", false, headers, queryParams);
+    Response response = makeRestCall("GET", "/auth/token", false, headers, queryParams);
     if (response.code >= 200 && response.code < 300)
     {
         LOG_DEBUG << "Authentication successful. Response: " << response.body;
@@ -70,7 +68,7 @@ bool LopDnsClient::validateToken()
         return false;
     }
 
-    RestClient::Response response = makeRestCall("GET", "/auth/validate");
+    Response response = makeRestCall("GET", "/auth/validate");
     if (response.code >= 200 && response.code < 300)
     {
         LOG_DEBUG << "Token validation successful. Response: " << response.body;
@@ -91,7 +89,7 @@ bool LopDnsClient::invalidateToken()
     }
 
     // Implementation for invalidating the token
-    RestClient::Response response = makeRestCall("GET", "/auth/invalidate");
+    Response response = makeRestCall("GET", "/auth/invalidate");
     if (response.code >= 200 && response.code < 300)
     {
         LOG_DEBUG << "Token invalidation successful. Response: " << response.body;
@@ -107,7 +105,7 @@ bool LopDnsClient::invalidateToken()
 std::list<std::string> LopDnsClient::getZones()
 {
     // Implementation for getting the list of zones
-    RestClient::Response response = makeRestCall("GET", "/zones");
+    Response response = makeRestCall("GET", "/zones");
     if (response.code >= 200 && response.code < 300)
     {
         // Parse response and return list of zones
@@ -145,7 +143,7 @@ std::list<std::string> LopDnsClient::getZones()
 std::list<Record> LopDnsClient::getRecords(const std::string& zone_name)
 {
     // Implementation for getting the list of records for a zone
-    RestClient::Response response = makeRestCall("GET", "/records/" + zone_name);
+    Response response = makeRestCall("GET", "/records/" + zone_name);
     if (response.code >= 200 && response.code < 300)
     {
         // Parse response and return list of records
@@ -185,7 +183,7 @@ Record LopDnsClient::createRecord(const std::string& zone_name, const std::strin
     bodyJson["ttl"] = ttl;
     bodyJson["priority"] = priority;
 
-    RestClient::Response response = makeRestCall("POST", "/records/" + zone_name, true, RestClient::HeaderFields(), std::map<std::string, std::string>(), bodyJson.dump());
+    Response response = makeRestCall("POST", "/records/" + zone_name, true, Headers(), QueryParams(), bodyJson.dump());
     if (response.code >= 200 && response.code < 300)
     {
         // Parse response and return updated record
@@ -232,7 +230,7 @@ Record LopDnsClient::updateRecord(const std::string& zone_name, const std::strin
         bodyJson["newPriority"] = new_priority.value();
     }
     
-    RestClient::Response response = makeRestCall("PUT", "/records/" + zone_name, true, RestClient::HeaderFields(), std::map<std::string, std::string>(), bodyJson.dump());
+    Response response = makeRestCall("PUT", "/records/" + zone_name, true, Headers(), QueryParams(), bodyJson.dump());
     if (response.code >= 200 && response.code < 300)
     {
         // Parse response and return updated record
@@ -260,7 +258,7 @@ bool LopDnsClient::deleteRecord(const std::string& zone_name, const std::string&
     bodyJson["type"] = type;
     bodyJson["value"] = content;
 
-    RestClient::Response response = makeRestCall("DELETE", "/records/" + zone_name, true, RestClient::HeaderFields(), std::map<std::string, std::string>(), bodyJson.dump());
+    Response response = makeRestCall("DELETE", "/records/" + zone_name, true, Headers(), QueryParams(), bodyJson.dump());
     if (response.code >= 200 && response.code < 300)
     {
         LOG_DEBUG << "Record deleted successfully. Response: " << response.body;
@@ -273,26 +271,18 @@ bool LopDnsClient::deleteRecord(const std::string& zone_name, const std::string&
     return false;
 }
 
-RestClient::Response LopDnsClient::makeRestCall(const std::string& method, const std::string& endpoint, bool applyAuthHeaders,
-                      const RestClient::HeaderFields& headers, const std::map<std::string, std::string>& queryParams,
+Response LopDnsClient::makeRestCall(const std::string& method, const std::string& endpoint, bool applyAuthHeaders,
+                      const Headers& headers, const QueryParams& queryParams,
                       const std::string& body)
 {
     // Implementation for making a REST API call
-    std::string queryString = "";
-    for (const auto& param : queryParams) {
-        queryString += (queryString.empty() ? "?" : "&");
-        queryString += param.first + "=" + param.second;
-    }
-
-    std::string uri = endpoint + queryString;
-    RestClient::Connection* conn = new RestClient::Connection(this->url);
-    RestClient::Response response;
-    response.code = -1;
+    std::string uri =  "/" + API_VERSION + endpoint;
 
     std::stringstream logData;
 
     logData << "Making " << method << " request to '" << url << "':";
     logData << "\n\tURI: " << uri;
+
     if (!queryParams.empty()) {
         logData << "\n\tQuery Parameters:";
         for (const auto& param : queryParams) {
@@ -314,54 +304,92 @@ RestClient::Response LopDnsClient::makeRestCall(const std::string& method, const
     }
     LOG_DEBUG << logData.str();
 
+
+    httplib::Result httpResult;
+    httplib::SSLClient client(url.c_str());
+
     try
     {
-        conn->SetTimeout(this->timeout);
-        conn->FollowRedirects(true);
 
-        conn->SetUserAgent(USER_AGENT.c_str());
-        
-        conn->SetHeaders(headers);
-        conn->AppendHeader("Content-Type", "application/json");
-        conn->AppendHeader("Accept", "application/json");
-        conn->AppendHeader("Content-Length", std::to_string(body.length()));
-        if (applyAuthHeaders) {
-            conn->AppendHeader("x-token", this->token.token);
+        LOG_DEBUG << "Setting timeouts to " << timeout << " seconds.";
+        client.set_connection_timeout(timeout, 0); 
+        client.set_read_timeout(timeout, 0); // 5 seconds
+        client.set_write_timeout(timeout, 0); // 5 seconds
+
+        LOG_DEBUG << "Setting connection properties ";
+        client.set_follow_location(true);
+        client.enable_server_certificate_verification(true);
+
+        LOG_DEBUG << "Preparing HTTP " << method << " request to '" << client.host() << uri << "' on port " << client.port();
+        LOG_DEBUG << "Adding headers";
+        httplib::Headers httpHeaders;
+        for (const auto& header : headers) {
+            httpHeaders.insert(header);
         }
-
+        if (applyAuthHeaders) {
+            httpHeaders.insert({"x-token", this->token.token});
+        }
+        httpHeaders.insert({"User-Agent", USER_AGENT.c_str()});
+        
+        LOG_DEBUG << "Adding parameters";
+        httplib::Params httpParams;
+        for (const auto& param : queryParams) {
+            httpParams.insert(param);
+        }
+        
+        LOG_DEBUG << "Sending HTTP " << method << " request";
         if (method == "GET") {
-            response = conn->get(uri);
+            httpResult = client.Get(uri, httpParams, httpHeaders);
         } else if (method == "POST") {
-            response = conn->post(uri, body);
+            httpResult = body.empty() ? client.Post(uri, httpHeaders, httpParams) : client.Post(uri, httpHeaders, body, ENCODING);
         } else if (method == "PUT") {
-            response = conn->put(uri, body);
+            httpResult = body.empty() ? client.Put(uri, httpHeaders, httpParams) : client.Put(uri, httpHeaders, body, ENCODING);
+        } else if (method == "PATCH") {
+            httpResult = body.empty() ? client.Patch(uri, httpHeaders, httpParams) : client.Patch(uri, httpHeaders, body, ENCODING);
         } else if (method == "DELETE") {
-            response = conn->del(uri);
+            httpResult = body.empty() ? client.Delete(uri, httpHeaders, httpParams) : client.Delete(uri, httpHeaders, body, ENCODING);
+        } else {
+            throw std::runtime_error("Unsupported HTTP method: " + method);
         }
     }
     catch(const std::exception& e)
     {
         std::cerr << e.what() << '\n';
-        delete conn;
         throw;
     }
 
-    logResponse(uri, method, response);
+    Response response;
+    response.code = -1;
 
-    delete conn;
+    if (!httpResult) {
+        auto err = httplib::to_string(httpResult.error());
+        LOG_ERROR << "HTTP request failed: " << err;
+        auto sslResult = client.get_openssl_verify_result();
+        if (sslResult) {
+            LOG_ERROR << "SSL verify error: " << X509_verify_cert_error_string(sslResult);
+        }
+        response.body = err;
+        return response;
+    }
+
+    LOG_DEBUG << "Handling HTTP response";
+    response.code = httpResult->status;
+    response.body = httpResult->body;
+
+    logResponse(uri, method, httpResult);
 
     return response;
 }
 
-void LopDnsClient::logResponse(const std::string& uri, const std::string& method, const RestClient::Response& response)
+void LopDnsClient::logResponse(const std::string& uri, const std::string& method, const httplib::Result& httpResult)
 {
     std::stringstream logData;
-    logData << "Response Code: " << response.code << "\n";
-    logData << "Response Body: " << response.body << "\n";
-    for (const auto& header : response.headers) {
+    logData << "Response Code: " << httpResult->status << "\n";
+    logData << "Response Body: " << httpResult->body << "\n";
+    for (const auto& header : httpResult->headers) {
         logData << "Response Header: " << header.first << ": " << header.second << "\n";
     }
-    if (response.code >= 400) {
+    if (httpResult->status >= 400) {
         LOG_ERROR << logData.str();
     } else {
         LOG_DEBUG << logData.str();
