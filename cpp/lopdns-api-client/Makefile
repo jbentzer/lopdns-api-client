@@ -3,7 +3,7 @@
 # Compiler and flags
 CC = g++
 CFLAGS = -Wall -O2 -std=c++17
-INC = -I../3rd-party/plog/include -I../3rd-party/args/include -I../3rd-party/cpp-httplib -I../3rd-party/json/include
+INC = -I../3rd-party/plog/include -I../3rd-party/args -I../3rd-party/cpp-httplib -I../3rd-party/json/include
 LIB = -L/usr/local/lib
 LIBS += -lssl -lcrypto
 
