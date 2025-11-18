@@ -24,7 +24,7 @@
 #include "lopdnsclient.h"
 
 
-const std::string URL = "https://api.lopdns.se/v2";
+const std::string URL = "api.lopdns.se";
 
 constexpr int defaultDnsRecordTtl = 3600;
 constexpr int defaultDnsRecordPriority = 0;
