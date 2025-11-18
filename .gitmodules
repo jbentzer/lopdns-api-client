@@ -10,3 +10,6 @@
 [submodule "cpp/3rd-party/args"]
 	path = cpp/3rd-party/args
 	url = https://github.com/Taywee/args.git
+[submodule "cpp/3rd-party/cpp-httplib"]
+	path = cpp/3rd-party/cpp-httplib
+	url = https://github.com/yhirose/cpp-httplib.git
